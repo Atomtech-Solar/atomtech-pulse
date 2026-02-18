@@ -61,19 +61,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
+      try {
+        const { data } = await supabase.auth.getSession();
+        const session = data.session;
 
-      if (session?.user) {
-        const profile = await loadProfile(session.user.id);
-        if (profile && mounted) {
-          setUser(profile);
-          if (profile.role !== "super_admin" && profile.company_id != null) {
-            setSelectedCompanyId(profile.company_id);
+        if (session?.user && mounted) {
+          const profile = await loadProfile(session.user.id);
+          if (profile && mounted) {
+            setUser(profile);
+            if (profile.role !== "super_admin" && profile.company_id != null) {
+              setSelectedCompanyId(profile.company_id);
+            }
           }
         }
+      } finally {
+        if (mounted) setLoading(false);
       }
-      if (mounted) setLoading(false);
     };
 
     init();

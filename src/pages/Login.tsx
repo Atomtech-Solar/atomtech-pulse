@@ -20,13 +20,28 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const err = await login(email, password);
-    if (err) {
-      setError(err);
+    try {
+      const timeoutMs = 20000;
+      const err = await Promise.race([
+        login(email, password),
+        new Promise<string | null>((_, reject) =>
+          setTimeout(() => reject(new Error("timeout")), timeoutMs)
+        ),
+      ]);
+      if (err) {
+        setError(err);
+        return;
+      }
+      navigate("/");
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message === "timeout"
+          ? "Demorou muito. Verifique sua conexão e tente novamente."
+          : "Erro de conexão. Tente novamente."
+      );
+    } finally {
       setLoading(false);
-      return;
     }
-    navigate("/");
   };
 
   return (

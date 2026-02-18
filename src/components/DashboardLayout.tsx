@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { companies } from '@/data/mockData';
+import { useState } from "react";
+import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCompanies } from "@/hooks/useSupabaseData";
 import {
   LayoutDashboard, Activity, Zap, Users, BarChart3, Bell,
   Ticket, Tag, DollarSign, Building2, Settings, LogOut,
@@ -26,9 +26,10 @@ const navItems = [
 
 export default function DashboardLayout() {
   const { user, logout, selectedCompanyId, setSelectedCompanyId } = useAuth();
+  const { data: companies = [] } = useCompanies();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
 
   const toggleTheme = () => {
     document.documentElement.classList.toggle('dark');
