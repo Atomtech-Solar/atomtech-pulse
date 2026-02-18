@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+      "context7": {
+        "url": "https://mcp.context7.com/mcp",
+        "headers": {
+          "CONTEXT7_API_KEY": "ctx7sk-943d02cf-79a9-400c-bb20-d3112f20a09c"
+        }
+      },
+      "supabase": {
+      "url": "https://mcp.supabase.com/mcp"
+    }
+    }
+  }

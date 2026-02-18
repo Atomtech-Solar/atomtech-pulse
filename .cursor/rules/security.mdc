@@ -1,0 +1,307 @@
+---
+alwaysApply: true
+---
+
+SECURITY GUIDE – ATOMTECH SaaS
+1. Princípios de Segurança
+
+Seu sistema precisa nascer com isso:
+
+Zero Trust → nunca confiar no frontend
+
+Isolamento por empresa (company_id)
+
+Controle por papel (role)
+
+Menor privilégio possível
+
+Regra de ouro:
+
+Se esquecer de filtrar por company_id, você criou um vazamento.
+
+2. Modelo de Segurança (Base do Sistema)
+
+Tudo gira em torno disso:
+
+type User = {
+  id: number
+  role: "super_admin" | "company_admin" | "manager" | "viewer"
+  company_id: number | null
+}
+
+Regras
+Super Admin
+
+Acessa tudo
+
+Pode trocar de empresa
+
+Outros usuários
+
+Só veem dados da própria empresa
+
+data.company_id === currentUser.company_id
+
+3. Multi-Tenant (CRÍTICO)
+
+Isso é o coração do seu SaaS.
+
+Regra obrigatória:
+
+TODA tabela deve ter:
+
+company_id: number
+
+Exemplo
+stations
+sessions
+users
+vouchers
+
+
+TODOS com company_id
+
+ERRO GRAVE
+
+Buscar dados sem filtro:
+
+getSessions()
+
+CERTO
+getSessions({ company_id: currentUser.company_id })
+
+4. Controle de Acesso (RBAC)
+
+Você já definiu roles — agora formaliza:
+
+Permissões
+Ação	super_admin	company_admin	manager	viewer
+Ver dados	✅	✅	✅	✅
+Criar	✅	✅	✅	❌
+Editar	✅	✅	✅	❌
+Excluir	✅	✅	❌	❌
+Configurações	✅	✅	❌	❌
+Middleware de acesso
+function can(action, user) {
+  const permissions = {
+    super_admin: ["*"],
+    company_admin: ["view", "create", "edit", "delete"],
+    manager: ["view", "create", "edit"],
+    viewer: ["view"]
+  }
+
+  return permissions[user.role].includes(action) || permissions[user.role].includes("*")
+}
+
+5. Autenticação
+MVP (atual)
+
+Simulação local
+
+localStorage
+
+Produção (obrigatório)
+
+Use Supabase Auth
+
+Email/Senha
+
+JWT
+
+Refresh token
+
+Regras
+
+Nunca guardar senha em texto puro
+
+Nunca confiar no frontend
+
+Sempre validar no backend
+
+6. Proteção de Rotas (Frontend)
+Regra
+if (!currentUser) {
+  redirect("/login")
+}
+
+Proteção por role
+if (currentUser.role !== "super_admin") {
+  redirect("/dashboard")
+}
+
+Componente
+<ProtectedRoute roles={["super_admin"]}>
+  <Empresas />
+</ProtectedRoute>
+
+7. Segurança no Banco (Supabase RLS)
+
+Aqui você fica profissional de verdade.
+
+Ativar RLS
+alter table stations enable row level security;
+
+Política base
+company_id = auth.jwt() ->> 'company_id'
+
+SELECT
+create policy "select own company"
+on stations
+for select
+using (
+  company_id = (auth.jwt() ->> 'company_id')::int
+);
+
+INSERT
+create policy "insert own company"
+on stations
+for insert
+with check (
+  company_id = (auth.jwt() ->> 'company_id')::int
+);
+
+SUPER ADMIN
+OR (auth.jwt() ->> 'role') = 'super_admin'
+
+
+Resultado:
+
+cada empresa vê só seus dados
+
+impossível vazar dados por erro de frontend
+
+ 8. Principais Vulnerabilidades
+
+Se você evitar isso, já está à frente de 90%:
+
+❌ 1. Esquecer company_id
+
+Vazamento de dados entre empresas
+
+❌ 2. Confiar no frontend
+
+Usuário pode alterar request manualmente
+
+❌ 3. Falta de RLS
+
+Qualquer um acessa tudo
+
+❌ 4. Role só no frontend
+
+Usuário pode mudar via console
+
+❌ 5. Expor dados sensíveis
+
+tokens
+
+ids internos
+
+9. Validação de Dados
+
+Sempre validar:
+
+Email
+
+Campos obrigatórios
+
+Tipos
+
+Exemplo
+if (!email.includes("@")) {
+  throw new Error("Email inválido")
+}
+
+
+Em produção:
+
+Zod
+
+Yup
+
+10. Logs e Auditoria (futuro)
+
+Para SaaS real:
+
+quem criou estação
+
+quem alterou tarifa
+
+quando
+
+created_by
+updated_at
+
+11. Segurança de API (futuro)
+
+Quando tiver backend:
+
+Rate limit
+
+JWT obrigatório
+
+Validação de payload
+
+Sanitização
+
+12. Boas Práticas de Git (SEU BLOCO + SEGURANÇA)
+
+Agora sim, vamos ajustar seu bloco com segurança.
+
+⚠️ REGRAS
+❌ Nunca subir:
+
+.env
+
+chaves API
+
+tokens
+
+✅ Usar .gitignore
+.env
+node_modules
+dist
+
+Variáveis seguras
+SUPABASE_URL=
+SUPABASE_KEY=
+
+Nunca fazer
+const API_KEY = "123456"
+
+ 13. Fluxo de Git (SEGURO)
+Trabalhando em feature
+git checkout dev
+git pull
+git checkout -b feature/nome
+
+Commit
+git add .
+git commit -m "feat: cria módulo de estações"
+
+Enviar
+git push origin feature/nome
+
+Merge seguro
+
+Revisar código
+
+Testar
+
+Merge → dev
+ 14. Checklist de Segurança (ANTES DE DEPLOY)
+
+Antes de subir:
+
+ Todas tabelas têm company_id
+
+ RLS ativado
+
+ Roles funcionando
+
+ Rotas protegidas
+
+ .env fora do git
+
+ Nenhum token exposto
+
+ Validação implementada
