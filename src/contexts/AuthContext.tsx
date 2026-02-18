@@ -56,9 +56,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const [loading, setLoading] = useState(true);
 
-  // Inicializa sessão + profile
+  // Inicializa sessão + profile (com timeout para nunca travar em "Carregando...")
   useEffect(() => {
     let mounted = true;
+    let loadingStopped = false;
+
+    const stopLoading = () => {
+      if (!loadingStopped && mounted) {
+        loadingStopped = true;
+        setLoading(false);
+      }
+    };
 
     const init = async () => {
       try {
@@ -74,12 +82,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
         }
+      } catch {
+        // Ignora erro (rede, etc.) e segue para liberar a tela
       } finally {
-        if (mounted) setLoading(false);
+        stopLoading();
       }
     };
 
     init();
+
+    // Se getSession ou loadProfile travar, libera a tela após 6s
+    const fallback = setTimeout(stopLoading, 6000);
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session?.user) {
@@ -98,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false;
+      clearTimeout(fallback);
       sub.subscription.unsubscribe();
     };
   }, []);
