@@ -1,29 +1,32 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Zap, Eye, EyeOff } from 'lucide-react';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Zap, Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
-    await new Promise(r => setTimeout(r, 600));
-    const err = login(email, password);
-    if (err) { setError(err); setLoading(false); return; }
-    navigate('/');
+    const err = await login(email, password);
+    if (err) {
+      setError(err);
+      setLoading(false);
+      return;
+    }
+    navigate("/");
   };
 
   return (
@@ -74,13 +77,17 @@ export default function Login() {
               </div>
             )}
 
-            <Button type="submit" className="w-full h-11 font-semibold gradient-primary text-primary-foreground glow-primary" disabled={loading}>
-              {loading ? 'Entrando...' : 'Entrar'}
+            <Button
+              type="submit"
+              className="w-full h-11 font-semibold gradient-primary text-primary-foreground glow-primary"
+              disabled={loading}
+            >
+              {loading ? "Entrando..." : "Entrar"}
             </Button>
           </form>
 
           <p className="text-xs text-muted-foreground text-center mt-6">
-            admin@atomtech.com / empresa@cliente.com — senha: 123456
+            Use suas credenciais cadastradas no Supabase Auth para acessar.
           </p>
         </div>
       </div>

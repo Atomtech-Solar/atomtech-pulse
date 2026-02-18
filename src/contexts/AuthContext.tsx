@@ -1,9 +1,11 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import type { Tables, Enums } from "@/types/supabase";
 
-export type Role = 'super_admin' | 'company_admin' | 'manager' | 'viewer';
+export type Role = Enums<"user_role">;
 
 export interface AuthUser {
-  id: number;
+  id: string;
   email: string;
   role: Role;
   company_id: number | null;
@@ -14,55 +16,130 @@ interface AuthContextType {
   user: AuthUser | null;
   selectedCompanyId: number | null;
   setSelectedCompanyId: (id: number | null) => void;
-  login: (email: string, password: string) => string | null;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<string | null>;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
+  loading: boolean;
 }
 
-const mockUsers = [
-  { id: 1, email: "admin@atomtech.com", password: "123456", role: "super_admin" as Role, company_id: null, name: "Admin Atomtech" },
-  { id: 2, email: "empresa@cliente.com", password: "123456", role: "company_admin" as Role, company_id: 1, name: "João Silva" },
-  { id: 3, email: "manager@cliente.com", password: "123456", role: "manager" as Role, company_id: 1, name: "Maria Santos" },
-];
+type ProfileRow = Tables<"profiles">;
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+async function loadProfile(userId: string): Promise<AuthUser | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("user_id", userId)
+    .single<ProfileRow>();
+
+  if (error || !data) {
+    // eslint-disable-next-line no-console
+    console.warn("Erro ao carregar profile do usuário", error);
+    return null;
+  }
+
+  return {
+    id: data.user_id,
+    email: data.email,
+    role: data.role,
+    company_id: data.company_id,
+    name: data.name ?? data.email,
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    const stored = localStorage.getItem('atomtech_user');
-    return stored ? JSON.parse(stored) : null;
-  });
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(() => {
-    const stored = localStorage.getItem('atomtech_company');
+    const stored = localStorage.getItem("atomtech_company");
     return stored ? Number(stored) : null;
   });
+  const [loading, setLoading] = useState(true);
+
+  // Inicializa sessão + profile
+  useEffect(() => {
+    let mounted = true;
+
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
+
+      if (session?.user) {
+        const profile = await loadProfile(session.user.id);
+        if (profile && mounted) {
+          setUser(profile);
+          if (profile.role !== "super_admin" && profile.company_id != null) {
+            setSelectedCompanyId(profile.company_id);
+          }
+        }
+      }
+      if (mounted) setLoading(false);
+    };
+
+    init();
+
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session?.user) {
+        setUser(null);
+        setSelectedCompanyId(null);
+        return;
+      }
+      const profile = await loadProfile(session.user.id);
+      if (profile) {
+        setUser(profile);
+        if (profile.role !== "super_admin" && profile.company_id != null) {
+          setSelectedCompanyId(profile.company_id);
+        }
+      }
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
-    if (user) localStorage.setItem('atomtech_user', JSON.stringify(user));
-    else localStorage.removeItem('atomtech_user');
-  }, [user]);
-
-  useEffect(() => {
-    if (selectedCompanyId !== null) localStorage.setItem('atomtech_company', String(selectedCompanyId));
-    else localStorage.removeItem('atomtech_company');
+    if (selectedCompanyId !== null) localStorage.setItem("atomtech_company", String(selectedCompanyId));
+    else localStorage.removeItem("atomtech_company");
   }, [selectedCompanyId]);
 
-  const login = (email: string, password: string): string | null => {
-    const found = mockUsers.find(u => u.email === email && u.password === password);
-    if (!found) return 'Email ou senha inválidos';
-    const { password: _, ...userData } = found;
-    setUser(userData);
-    if (userData.role !== 'super_admin') setSelectedCompanyId(userData.company_id);
+  const login = async (email: string, password: string): Promise<string | null> => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !data.session || !data.user) {
+      return "Email ou senha inválidos";
+    }
+
+    const profile = await loadProfile(data.user.id);
+    if (!profile) {
+      return "Perfil de usuário não encontrado. Contate o administrador.";
+    }
+
+    setUser(profile);
+    if (profile.role !== "super_admin" && profile.company_id != null) {
+      setSelectedCompanyId(profile.company_id);
+    }
     return null;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     setSelectedCompanyId(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, selectedCompanyId, setSelectedCompanyId, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        selectedCompanyId,
+        setSelectedCompanyId,
+        login,
+        logout,
+        isAuthenticated: !!user,
+        loading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -70,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
+

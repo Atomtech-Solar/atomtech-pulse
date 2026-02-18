@@ -1,15 +1,53 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tag } from 'lucide-react';
+import { useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tag } from "lucide-react";
+import { useTariffs } from "@/hooks/useSupabaseData";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabaseClient";
+import { useToast } from "@/hooks/use-toast";
 
-const days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
-
-const defaultTariff = {
-  initial: '2.50', perKwh: '1.50', perMin: '0.10', opFee: '5.00', tax: '8', idle: '0.50', reserve: '3.00', idleTime: '15',
-};
+const days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
 
 export default function Promotions() {
+  const { selectedCompanyId } = useAuth();
+  const { data: tariffs = [], refetch } = useTariffs();
+  const { toast } = useToast();
+
+  const tariffsByWeekday = useMemo(
+    () => new Map(tariffs.map(t => [t.weekday, t])),
+    [tariffs],
+  );
+
+  const handleBlur = async (weekdayIndex: number, field: keyof typeof tariffs[0], value: string) => {
+    if (!selectedCompanyId) return;
+    const numeric = Number(value.replace(",", "."));
+    const existing = tariffsByWeekday.get(weekdayIndex);
+    if (!existing) {
+      const { error } = await supabase.from("tariffs").insert({
+        company_id: selectedCompanyId,
+        weekday: weekdayIndex,
+        [field]: numeric,
+      } as any);
+      if (error) {
+        toast({ title: "Erro ao salvar tarifa", description: error.message, variant: "destructive" });
+      } else {
+        refetch();
+      }
+      return;
+    }
+    const { error } = await supabase
+      .from("tariffs")
+      .update({ [field]: numeric } as any)
+      .eq("id", existing.id);
+    if (error) {
+      toast({ title: "Erro ao salvar tarifa", description: error.message, variant: "destructive" });
+    } else {
+      refetch();
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -24,12 +62,62 @@ export default function Promotions() {
               <CardTitle className="text-sm flex items-center gap-2"><Tag className="w-3.5 h-3.5 text-primary" />{day}</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label className="text-[10px]">Valor Inicial (R$)</Label><Input defaultValue={defaultTariff.initial} className="h-8 text-sm" /></div>
-              <div className="space-y-1"><Label className="text-[10px]">Valor/kWh (R$)</Label><Input defaultValue={defaultTariff.perKwh} className="h-8 text-sm" /></div>
-              <div className="space-y-1"><Label className="text-[10px]">Valor/min (R$)</Label><Input defaultValue={defaultTariff.perMin} className="h-8 text-sm" /></div>
-              <div className="space-y-1"><Label className="text-[10px]">Taxa Op. (R$)</Label><Input defaultValue={defaultTariff.opFee} className="h-8 text-sm" /></div>
-              <div className="space-y-1"><Label className="text-[10px]">Impostos (%)</Label><Input defaultValue={defaultTariff.tax} className="h-8 text-sm" /></div>
-              <div className="space-y-1"><Label className="text-[10px]">Ociosidade (R$)</Label><Input defaultValue={defaultTariff.idle} className="h-8 text-sm" /></div>
+              {(() => {
+                const index = days.indexOf(day);
+                const t = tariffsByWeekday.get(index);
+                return (
+                  <>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Valor Inicial (R$)</Label>
+                      <Input
+                        defaultValue={t?.initial ?? 2.5}
+                        className="h-8 text-sm"
+                        onBlur={e => handleBlur(index, "initial" as any, e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Valor/kWh (R$)</Label>
+                      <Input
+                        defaultValue={t?.per_kwh ?? 1.5}
+                        className="h-8 text-sm"
+                        onBlur={e => handleBlur(index, "per_kwh" as any, e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Valor/min (R$)</Label>
+                      <Input
+                        defaultValue={t?.per_min ?? 0.1}
+                        className="h-8 text-sm"
+                        onBlur={e => handleBlur(index, "per_min" as any, e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Taxa Op. (R$)</Label>
+                      <Input
+                        defaultValue={t?.op_fee ?? 5}
+                        className="h-8 text-sm"
+                        onBlur={e => handleBlur(index, "op_fee" as any, e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Impostos (%)</Label>
+                      <Input
+                        defaultValue={t?.tax_percent ?? 8}
+                        className="h-8 text-sm"
+                        onBlur={e => handleBlur(index, "tax_percent" as any, e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Ociosidade (R$)</Label>
+                      <Input
+                        defaultValue={t?.idle ?? 0.5}
+                        className="h-8 text-sm"
+                        onBlur={e => handleBlur(index, "idle" as any, e.target.value)}
+                      />
+                    </div>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         ))}

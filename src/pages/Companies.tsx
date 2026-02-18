@@ -1,11 +1,15 @@
-import { companies } from '@/data/mockData';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Building2 } from 'lucide-react';
+import { useCompanies } from "@/hooks/useSupabaseData";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Plus, Building2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Companies() {
+  const { user } = useAuth();
+  const { data: companies = [] } = useCompanies();
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -13,7 +17,11 @@ export default function Companies() {
           <h1 className="text-2xl font-display font-bold">Empresas</h1>
           <p className="text-muted-foreground text-sm mt-1">Gestão multi-tenant</p>
         </div>
-        <Button className="gradient-primary text-primary-foreground glow-primary"><Plus className="w-4 h-4 mr-2" /> Nova Empresa</Button>
+        {user?.role === "super_admin" && (
+          <Button className="gradient-primary text-primary-foreground glow-primary">
+            <Plus className="w-4 h-4 mr-2" /> Nova Empresa
+          </Button>
+        )}
       </div>
       <Card className="border-border bg-card">
         <CardContent className="p-0">

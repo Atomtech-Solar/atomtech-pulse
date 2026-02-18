@@ -1,14 +1,15 @@
-import { useAuth } from '@/contexts/AuthContext';
-import { stations, sessions, filterByCompany, companies } from '@/data/mockData';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, TrendingUp } from 'lucide-react';
+import { useAuth } from "@/contexts/AuthContext";
+import { useSessions, useStations, useStationRevenue } from "@/hooks/useSupabaseData";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DollarSign, TrendingUp } from "lucide-react";
 
 export default function Financial() {
   const { user, selectedCompanyId } = useAuth();
-  const role = user?.role ?? 'viewer';
-  const filteredSessions = filterByCompany(sessions, selectedCompanyId, role);
-  const totalRevenue = filteredSessions.reduce((s, se) => s + se.revenue, 0);
+  const role = user?.role ?? "viewer";
+  const { data: sessions = [] } = useSessions();
+  const { data: stationRevenue = [] } = useStationRevenue();
+  const totalRevenue = sessions.reduce((s, se) => s + (se.revenue ?? 0), 0);
   const taxes = totalRevenue * 0.08;
   const opFees = filteredSessions.length * 5;
 
@@ -49,12 +50,14 @@ export default function Financial() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filterByCompany(stations, selectedCompanyId, role).map(st => {
-                const stRevenue = filteredSessions.filter(s => s.station_name === st.name).reduce((a, s) => a + s.revenue, 0);
+              {stationRevenue.map(st => {
+                const stRevenue = st.revenue ?? 0;
                 return (
-                  <TableRow key={st.id} className="border-border">
+                  <TableRow key={st.station_id ?? st.name ?? ""} className="border-border">
                     <TableCell className="font-medium">{st.name}</TableCell>
-                    <TableCell>{st.city}, {st.uf}</TableCell>
+                    <TableCell>
+                      {st.city}, {st.uf}
+                    </TableCell>
                     <TableCell>{st.total_sessions}</TableCell>
                     <TableCell>R$ {stRevenue.toFixed(2)}</TableCell>
                   </TableRow>

@@ -1,31 +1,31 @@
-import { useAuth } from '@/contexts/AuthContext';
-import { stations, sessions, evUsers, consumptionByDay, popularHours, filterByCompany } from '@/data/mockData';
+import { useAuth } from "@/contexts/AuthContext";
+import { useStations, useSessions, useEvUsers } from "@/hooks/useSupabaseData";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Activity, Zap, BatteryCharging, DollarSign, Leaf, TreePine, Gauge } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function Overview() {
   const { user, selectedCompanyId } = useAuth();
-  const role = user?.role ?? 'viewer';
+  const role = user?.role ?? "viewer";
 
-  const filteredStations = filterByCompany(stations, selectedCompanyId, role);
-  const filteredSessions = filterByCompany(sessions, selectedCompanyId, role);
-  const filteredUsers = filterByCompany(evUsers, selectedCompanyId, role);
+  const { data: stations = [] } = useStations();
+  const { data: sessions = [] } = useSessions();
+  const { data: evUsers = [] } = useEvUsers();
 
-  const totalKwh = filteredStations.reduce((s, st) => s + st.total_kwh, 0);
-  const totalRevenue = filteredSessions.reduce((s, se) => s + se.revenue, 0);
-  const activeSessions = filteredSessions.filter(s => s.status === 'active').length;
-  const onlineStations = filteredStations.filter(s => s.status === 'online').length;
-  const allConnectors = filteredStations.flatMap(s => s.connectors);
-  const availableConnectors = allConnectors.filter(c => c.status === 'available').length;
+  const totalKwh = stations.reduce((s, st) => s + (st.total_kwh ?? 0), 0);
+  const totalRevenue = sessions.reduce((s, se) => s + (se.revenue ?? 0), 0);
+  const activeSessions = sessions.filter(s => s.status === "active").length;
+  const onlineStations = stations.filter(s => s.status === "online").length;
+  const allConnectors = stations.flatMap(s => (s.station_connectors ?? []));
+  const availableConnectors = allConnectors.filter(c => c.status === "available").length;
   const co2Saved = totalKwh * 0.5;
   const treesEquiv = Math.round(co2Saved / 22);
 
   const kpis = [
-    { label: 'Usuários', value: filteredUsers.length.toLocaleString('pt-BR'), icon: Users, color: 'text-primary' },
+    { label: "Usuários", value: evUsers.length.toLocaleString("pt-BR"), icon: Users, color: "text-primary" },
     { label: 'Sessões Ativas', value: activeSessions, icon: Activity, color: 'text-accent' },
-    { label: 'Recargas Total', value: filteredSessions.length, icon: BatteryCharging, color: 'text-chart-3' },
-    { label: 'Estações Online', value: `${onlineStations}/${filteredStations.length}`, icon: Zap, color: 'text-primary' },
+    { label: 'Recargas Total', value: sessions.length, icon: BatteryCharging, color: 'text-chart-3' },
+    { label: 'Estações Online', value: `${onlineStations}/${stations.length}`, icon: Zap, color: 'text-primary' },
     { label: 'Conectores Livres', value: `${availableConnectors}/${allConnectors.length}`, icon: Gauge, color: 'text-accent' },
     { label: 'kWh Consumidos', value: totalKwh.toLocaleString('pt-BR'), icon: BatteryCharging, color: 'text-chart-3' },
     { label: 'Receita Estimada', value: `R$ ${totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: DollarSign, color: 'text-accent' },
@@ -38,7 +38,7 @@ export default function Overview() {
       <div>
         <h1 className="text-2xl font-display font-bold">Visão Geral</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          {role === 'super_admin' && !selectedCompanyId ? 'Consolidado de todas as empresas' : 'Resumo operacional'}
+          {role === "super_admin" && !selectedCompanyId ? "Consolidado de todas as empresas" : "Resumo operacional"}
         </p>
       </div>
 
@@ -65,7 +65,9 @@ export default function Overview() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={consumptionByDay}>
+              <AreaChart
+                data={[]}
+              >
                 <defs>
                   <linearGradient id="kwhGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
@@ -93,7 +95,9 @@ export default function Overview() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={popularHours}>
+              <BarChart
+                data={[]}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="hour" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} axisLine={false} tickLine={false} interval={2} />
                 <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} axisLine={false} tickLine={false} />

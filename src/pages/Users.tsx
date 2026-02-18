@@ -1,13 +1,14 @@
-import { useAuth } from '@/contexts/AuthContext';
-import { evUsers, filterByCompany } from '@/data/mockData';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertTriangle } from 'lucide-react';
+import { useAuth } from "@/contexts/AuthContext";
+import { useEvUsers } from "@/hooks/useSupabaseData";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertTriangle } from "lucide-react";
 
 export default function UsersPage() {
   const { user, selectedCompanyId } = useAuth();
-  const data = filterByCompany(evUsers, selectedCompanyId, user?.role ?? 'viewer');
+  const { data: evUsers = [] } = useEvUsers();
+  const data = evUsers;
 
   return (
     <div className="space-y-6 animate-fade-in">
