@@ -524,6 +524,15 @@ export type Database = {
       };
     };
     Functions: {
+      create_company_for_signup: {
+        Args: {
+          p_company_name: string;
+          p_cnpj: string;
+          p_user_email: string;
+          p_user_name?: string;
+        };
+        Returns: number;
+      };
       current_company_id: { Args: never; Returns: number };
       current_profile: {
         Args: never;

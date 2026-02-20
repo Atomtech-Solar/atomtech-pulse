@@ -130,56 +130,27 @@ export default function Register() {
         }
       } else {
         const cnpjDigits = stripCnpj(cnpj);
-
-        const { data: existingCompany } = await supabase
-          .from("companies")
-          .select("id")
-          .eq("cnpj", cnpjDigits)
-          .maybeSingle();
-
-        let companyId: number;
-
-        if (existingCompany) {
-          companyId = existingCompany.id;
-        } else {
-          const { data: newCompany, error: insertCompanyError } = await supabase
-            .from("companies")
-            .insert({
-              name: trimmedCompany,
-              cnpj: cnpjDigits,
-            })
-            .select("id")
-            .single();
-
-          if (insertCompanyError) {
-            setError(
-              insertCompanyError.message.includes("row-level security") ||
-                insertCompanyError.message.includes("policy")
-                ? "Não foi possível criar a empresa. Verifique as políticas RLS no Supabase."
-                : insertCompanyError.message
-            );
-            setLoading(false);
-            return;
+        const rpc = supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>
+        ) => Promise<{ error: { message: string } | null }>;
+        const { error: rpcError } = await rpc(
+          "create_company_for_signup",
+          {
+            p_company_name: trimmedCompany,
+            p_cnpj: cnpjDigits,
+            p_user_email: trimmedEmail,
+            p_user_name: displayName,
           }
+        );
 
-          if (!newCompany) {
-            setError("Erro ao criar empresa. Tente novamente.");
-            setLoading(false);
-            return;
-          }
-          companyId = newCompany.id;
-        }
-
-        const { error: profileError } = await upsertProfile({
-          user_id: userId,
-          email: trimmedEmail,
-          name: displayName,
-          role: "company_admin",
-          company_id: companyId,
-        });
-
-        if (profileError) {
-          setError(profileError.message);
+        if (rpcError) {
+          setError(
+            rpcError.message.includes("function") ||
+            rpcError.message.includes("does not exist")
+              ? "Função de cadastro de empresa não encontrada no Supabase. Aplique a migration create_company_for_signup."
+              : rpcError.message
+          );
           setLoading(false);
           return;
         }

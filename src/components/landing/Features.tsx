@@ -8,23 +8,23 @@ import {
 const features = [
   {
     icon: Activity,
-    title: "Gamificação para Mobilidade Elétrica",
-    description: "Transformamos o carregamento urbano em uma experiência dinâmica, baseada em progresso, metas e engajamento.",
+    title: "Quero fazer parte da rede",
+    description: "Conecte seu espaço a uma nova era da mobilidade.",
   },
   {
     icon: Users,
-    title: "Plataforma que engaja de verdade",
-    description: "Metas, rankings e evolução em tempo real.",
+    title: "Quero instalar um ponto",
+    description: "Transforme seu local em um ativo estratégico.",
   },
   {
     icon: BarChart3,
-    title: "Uma rede que aprende com o uso",
-    description: "Quanto mais ativa, mais eficiente.",
+    title: "Quero entrar na Top Up",
+    description: "Integre a rede que está crescendo nas cidades.",
   },
   {
     icon: Building2,
-    title: "Energia urbana com mentalidade de jogo",
-    description: "Progresso visível. Crescimento constante.",
+    title: "Quero ativar meu ponto",
+    description: "Seu carregador pode integrar nosso ecossistema.",
   },
 ];
 
@@ -33,7 +33,7 @@ export default function Features() {
     <section className="py-24 px-4">
       <div className="max-w-6xl mx-auto">
         <h2 className="text-3xl sm:text-4xl font-bold text-center text-foreground mb-4">
-          Tudo que você precisa para escalar
+        Transformando pontos de recarga em ativos estratégicos.
         </h2>
         <p className="text-muted-foreground text-center max-w-2xl mx-auto mb-16">
           Recursos pensados para operadores de redes de recarga de veículos elétricos.
