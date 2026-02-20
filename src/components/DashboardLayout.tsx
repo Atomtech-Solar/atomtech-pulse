@@ -12,16 +12,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 const navItems = [
-  { label: 'Visão Geral', path: '/', icon: LayoutDashboard },
-  { label: 'Sessões', path: '/sessions', icon: Activity },
-  { label: 'Estações', path: '/stations', icon: Zap },
-  { label: 'Usuários', path: '/users', icon: Users },
-  { label: 'Analytics', path: '/analytics', icon: BarChart3 },
-  { label: 'Push', path: '/push', icon: Bell },
-  { label: 'Vouchers', path: '/vouchers', icon: Ticket },
-  { label: 'Promoções', path: '/promotions', icon: Tag },
-  { label: 'Financeiro', path: '/financial', icon: DollarSign },
-  { label: 'Configurações', path: '/settings', icon: Settings },
+  { label: 'Visão Geral', path: '/app', icon: LayoutDashboard },
+  { label: 'Sessões', path: '/app/sessions', icon: Activity },
+  { label: 'Estações', path: '/app/stations', icon: Zap },
+  { label: 'Usuários', path: '/app/users', icon: Users },
+  { label: 'Analytics', path: '/app/analytics', icon: BarChart3 },
+  { label: 'Push', path: '/app/push', icon: Bell },
+  { label: 'Vouchers', path: '/app/vouchers', icon: Ticket },
+  { label: 'Promoções', path: '/app/promotions', icon: Tag },
+  { label: 'Financeiro', path: '/app/financial', icon: DollarSign },
+  { label: 'Configurações', path: '/app/settings', icon: Settings },
 ];
 
 export default function DashboardLayout() {
@@ -38,11 +38,11 @@ export default function DashboardLayout() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate("/login", { replace: true });
   };
 
   const allNavItems = user?.role === 'super_admin'
-    ? [...navItems.slice(0, -1), { label: 'Empresas', path: '/companies', icon: Building2 }, navItems[navItems.length - 1]]
+    ? [...navItems.slice(0, -1), { label: 'Empresas', path: '/app/companies', icon: Building2 }, navItems[navItems.length - 1]]
     : navItems;
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -65,7 +65,7 @@ export default function DashboardLayout() {
           <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
             <Zap className="w-4 h-4 text-primary-foreground" />
           </div>
-          <span className="font-display font-bold text-lg text-foreground tracking-tight">ATOMTECH</span>
+          <span className="font-display font-bold text-lg text-foreground tracking-tight">TOP-UP</span>
           <button className="lg:hidden ml-auto text-muted-foreground" onClick={() => setSidebarOpen(false)}>
             <X className="w-5 h-5" />
           </button>
@@ -73,7 +73,7 @@ export default function DashboardLayout() {
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {allNavItems.map(item => (
-            <NavLink key={item.path} to={item.path} end={item.path === '/'} className={linkClass} onClick={() => setSidebarOpen(false)}>
+            <NavLink key={item.path} to={item.path} end={item.path === '/app'} className={linkClass} onClick={() => setSidebarOpen(false)}>
               <item.icon className="w-4 h-4 shrink-0" />
               <span>{item.label}</span>
             </NavLink>

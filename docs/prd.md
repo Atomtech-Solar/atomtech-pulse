@@ -1,7 +1,7 @@
-📌 PRD – ATOMTECH SaaS (Gestão de Carregadores Veiculares)
+📌 PRD – TOP-UP SaaS (Gestão de Carregadores Veiculares)
 1. Visão do Produto
 
-Nome: Atomtech Dashboard
+Nome: TOP-UP Dashboard
 Tipo: SaaS multi-tenant (multi-empresa)
 Plataforma: Web (responsivo – desktop/tablet)
 
@@ -34,7 +34,7 @@ Oferece analytics avançado
 Simula controle em tempo real (futuro WebSocket)
 
 2. Personas
-👤 Super Admin (Atomtech)
+👤 Super Admin (TOP-UP)
 
 Administra todas as empresas
 

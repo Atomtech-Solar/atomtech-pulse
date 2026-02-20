@@ -1,8 +1,12 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { useEffect, type ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
-export default function ProtectedRoute() {
-  const { isAuthenticated, isLoading } = useAuth();
+export default function AuthInit({ children }: { children: ReactNode }) {
+  const { loadUserFromStorage, isLoading } = useAuth();
+
+  useEffect(() => {
+    loadUserFromStorage();
+  }, [loadUserFromStorage]);
 
   if (isLoading) {
     return (
@@ -15,6 +19,5 @@ export default function ProtectedRoute() {
     );
   }
 
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  return <Outlet />;
+  return <>{children}</>;
 }

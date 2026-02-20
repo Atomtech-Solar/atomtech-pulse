@@ -130,3 +130,38 @@ export function filterByCompany<T extends { company_id: number }>(data: T[], com
   if (companyId !== null) return data.filter(d => d.company_id === companyId);
   return data;
 }
+
+export interface MockVoucher {
+  id: number;
+  company_id: number;
+  code: string;
+  name: string;
+  type: string;
+  total: number;
+  daily: number | null;
+  used: number;
+  status: string;
+  expiry_date: string | null;
+}
+
+export interface MockPushNotification {
+  id: number;
+  company_id: number;
+  title: string;
+  message: string;
+  recipients_count: number;
+  status: string;
+  created_at: string;
+}
+
+export const vouchers: MockVoucher[] = [
+  { id: 1, company_id: 1, code: "PROMO2026", name: "Promoção Verão", type: "kWh", total: 100, daily: 10, used: 45, status: "active", expiry_date: "2026-03-31" },
+  { id: 2, company_id: 1, code: "ECO50", name: "Eco Desconto", type: "%", total: 200, daily: 20, used: 120, status: "active", expiry_date: "2026-06-30" },
+  { id: 3, company_id: 1, code: "WELCOME", name: "Boas-vindas", type: "R$", total: 50, daily: 5, used: 50, status: "expired", expiry_date: "2026-01-31" },
+];
+
+export const pushNotifications: MockPushNotification[] = [
+  { id: 1, company_id: 1, title: "Promoção de Carnaval", message: "Ganhe 20% off.", recipients_count: 340, status: "sent", created_at: "2026-02-15T00:00:00" },
+  { id: 2, company_id: 1, title: "Nova estação disponível", message: "Inauguramos nova estação.", recipients_count: 210, status: "sent", created_at: "2026-02-10T00:00:00" },
+  { id: 3, company_id: 1, title: "Manutenção programada", message: "Teremos manutenção.", recipients_count: 95, status: "sent", created_at: "2026-02-05T00:00:00" },
+];

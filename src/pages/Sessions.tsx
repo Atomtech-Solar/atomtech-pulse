@@ -38,15 +38,15 @@ export default function Sessions() {
             </TableHeader>
             <TableBody>
               {data.map(s => {
-                const st = statusMap[s.status];
+                const st = statusMap[s.status as keyof typeof statusMap] ?? statusMap.completed;
                 return (
                   <TableRow key={s.id} className="border-border">
-                    <TableCell className="font-mono text-xs">{s.external_id}</TableCell>
+                    <TableCell className="font-mono text-xs">{(s as { external_id?: string }).external_id ?? s.id}</TableCell>
                     <TableCell>{s.user_name}</TableCell>
                     <TableCell>{s.station_name}</TableCell>
                     <TableCell className="text-sm">
-                      {s.start_time
-                        ? new Date(s.start_time).toLocaleString("pt-BR", {
+                      {(s as { start_time?: string; start?: string }).start_time ?? (s as { start?: string }).start
+                        ? new Date(((s as { start_time?: string; start?: string }).start_time ?? (s as { start?: string }).start)!).toLocaleString("pt-BR", {
                             day: "2-digit",
                             month: "2-digit",
                             hour: "2-digit",

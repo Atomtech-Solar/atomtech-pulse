@@ -16,7 +16,7 @@ export default function Overview() {
   const totalRevenue = sessions.reduce((s, se) => s + (se.revenue ?? 0), 0);
   const activeSessions = sessions.filter(s => s.status === "active").length;
   const onlineStations = stations.filter(s => s.status === "online").length;
-  const allConnectors = stations.flatMap(s => (s.station_connectors ?? []));
+  const allConnectors = stations.flatMap(s => (s.station_connectors ?? (s as { connectors?: unknown[] }).connectors ?? []));
   const availableConnectors = allConnectors.filter(c => c.status === "available").length;
   const co2Saved = totalKwh * 0.5;
   const treesEquiv = Math.round(co2Saved / 22);

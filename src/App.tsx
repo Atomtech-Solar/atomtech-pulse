@@ -4,9 +4,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import AuthInit from "@/components/AuthInit";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import DashboardLayout from "@/components/DashboardLayout";
 import Login from "@/pages/Login";
+import Landing from "@/pages/Landing";
+import Register from "@/pages/Register";
 import Overview from "@/pages/Overview";
 import Sessions from "@/pages/Sessions";
 import Stations from "@/pages/Stations";
@@ -28,27 +31,31 @@ const App = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <BrowserRouter>
+        <AuthInit>
+          <BrowserRouter>
           <Routes>
+            <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/cadastro" element={<Register />} />
             <Route element={<ProtectedRoute />}>
-              <Route element={<DashboardLayout />}>
-                <Route path="/" element={<Overview />} />
-                <Route path="/sessions" element={<Sessions />} />
-                <Route path="/stations" element={<Stations />} />
-                <Route path="/users" element={<UsersPage />} />
-                <Route path="/analytics" element={<Analytics />} />
-                <Route path="/push" element={<Push />} />
-                <Route path="/vouchers" element={<Vouchers />} />
-                <Route path="/promotions" element={<Promotions />} />
-                <Route path="/financial" element={<Financial />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/companies" element={<Companies />} />
+              <Route path="/app" element={<DashboardLayout />}>
+                <Route index element={<Overview />} />
+                <Route path="sessions" element={<Sessions />} />
+                <Route path="stations" element={<Stations />} />
+                <Route path="users" element={<UsersPage />} />
+                <Route path="analytics" element={<Analytics />} />
+                <Route path="push" element={<Push />} />
+                <Route path="vouchers" element={<Vouchers />} />
+                <Route path="promotions" element={<Promotions />} />
+                <Route path="financial" element={<Financial />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="companies" element={<Companies />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
+        </AuthInit>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

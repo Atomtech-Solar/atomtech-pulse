@@ -149,7 +149,7 @@ export default function Stations() {
               </div>
 
               <div className="flex items-center gap-1.5 mb-4">
-                {station.connectors.map(c => (
+                {(station.station_connectors ?? station.connectors ?? []).map((c: { id: number; type: string; status: string; power_kw: number }) => (
                   <div key={c.id} className="flex items-center gap-1.5 bg-secondary rounded-md px-2 py-1">
                     <div className={`w-2 h-2 rounded-full ${connectorColors[c.status]}`} />
                     <span className="text-xs text-muted-foreground">{c.type} {c.power_kw}kW</span>
