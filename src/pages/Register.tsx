@@ -5,10 +5,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Zap } from "lucide-react";
+import { Zap, User, Building2 } from "lucide-react";
+import {
+  validateCnpj,
+  stripCnpj,
+  formatCnpj,
+} from "@/lib/validateCnpj";
+
+type AccountType = "user" | "company";
 
 export default function Register() {
+  const [accountType, setAccountType] = useState<AccountType>("user");
+  const [name, setName] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [cnpj, setCnpj] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -27,14 +37,10 @@ export default function Register() {
     setError("");
     setLoading(true);
 
-    const trimmedCompany = companyName.trim();
     const trimmedEmail = email.trim().toLowerCase();
+    const trimmedName = name.trim();
+    const trimmedCompany = companyName.trim();
 
-    if (!trimmedCompany) {
-      setError("Nome da empresa é obrigatório");
-      setLoading(false);
-      return;
-    }
     if (!trimmedEmail) {
       setError("Email é obrigatório");
       setLoading(false);
@@ -46,17 +52,46 @@ export default function Register() {
       return;
     }
 
+    if (accountType === "user") {
+      if (!trimmedName) {
+        setError("Nome é obrigatório");
+        setLoading(false);
+        return;
+      }
+    } else {
+      if (!trimmedCompany) {
+        setError("Nome da empresa é obrigatório");
+        setLoading(false);
+        return;
+      }
+      const cnpjValidation = validateCnpj(cnpj);
+      if (!cnpjValidation.valid) {
+        setError(cnpjValidation.error ?? "CNPJ inválido");
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: trimmedEmail,
         password,
         options: {
-          data: { company_name: trimmedCompany, name: trimmedCompany },
+          data: {
+            name: accountType === "user" ? trimmedName : trimmedCompany,
+            company_name: accountType === "company" ? trimmedCompany : undefined,
+          },
         },
       });
 
       if (signUpError) {
-        setError(signUpError.message === "User already registered" ? "Este email já está cadastrado. Faça login." : signUpError.message);
+        let message = signUpError.message;
+        if (signUpError.message === "User already registered") {
+          message = "Este email já está cadastrado. Faça login.";
+        } else if (signUpError.message.toLowerCase().includes("email rate limit") || signUpError.message.toLowerCase().includes("rate limit exceeded")) {
+          message = "Limite de tentativas excedido. Aguarde cerca de 1 hora ou desative a confirmação de email no Supabase (Auth → Providers → Email → desmarque 'Confirm email') para desenvolvimento.";
+        }
+        setError(message);
         setLoading(false);
         return;
       }
@@ -67,35 +102,132 @@ export default function Register() {
         return;
       }
 
-      const { error: rpcError } = await supabase.rpc("create_company_for_signup", {
-        p_company_name: trimmedCompany,
-        p_user_email: trimmedEmail,
-        p_user_name: trimmedCompany,
-      });
-
-      if (rpcError) {
-        setError(
-          rpcError.message.includes("function") || rpcError.message.includes("does not exist")
-            ? "Configure a migration do Supabase (create_company_for_signup). Veja supabase/migrations/"
-            : rpcError.message
-        );
+      // Sem sessão (ex.: confirmação de email ativa), não é possível escrever em tabelas com RLS.
+      // Nesse caso, encerra o fluxo aqui e pede confirmação/login.
+      if (!authData.session) {
+        setError("Conta criada! Verifique seu email para confirmar e faça login.");
+        navigate("/login", { replace: true });
         setLoading(false);
         return;
       }
 
-      if (authData.session) {
-        await setUserFromSupabase(authData.session);
-        navigate("/app", { replace: true });
+      const userId = authData.user.id;
+      const displayName =
+        accountType === "user" ? trimmedName : trimmedCompany;
+
+      if (accountType === "user") {
+        const { error: profileError } = await upsertProfile({
+          user_id: userId,
+          email: trimmedEmail,
+          name: displayName,
+          role: "viewer",
+          company_id: null,
+        });
+        if (profileError) {
+          setError(profileError.message);
+          setLoading(false);
+          return;
+        }
       } else {
-        setError("Conta criada! Verifique seu email para confirmar e faça login.");
-        navigate("/login", { replace: true });
+        const cnpjDigits = stripCnpj(cnpj);
+
+        const { data: existingCompany } = await supabase
+          .from("companies")
+          .select("id")
+          .eq("cnpj", cnpjDigits)
+          .maybeSingle();
+
+        let companyId: number;
+
+        if (existingCompany) {
+          companyId = existingCompany.id;
+        } else {
+          const { data: newCompany, error: insertCompanyError } = await supabase
+            .from("companies")
+            .insert({
+              name: trimmedCompany,
+              cnpj: cnpjDigits,
+            })
+            .select("id")
+            .single();
+
+          if (insertCompanyError) {
+            setError(
+              insertCompanyError.message.includes("row-level security") ||
+                insertCompanyError.message.includes("policy")
+                ? "Não foi possível criar a empresa. Verifique as políticas RLS no Supabase."
+                : insertCompanyError.message
+            );
+            setLoading(false);
+            return;
+          }
+
+          if (!newCompany) {
+            setError("Erro ao criar empresa. Tente novamente.");
+            setLoading(false);
+            return;
+          }
+          companyId = newCompany.id;
+        }
+
+        const { error: profileError } = await upsertProfile({
+          user_id: userId,
+          email: trimmedEmail,
+          name: displayName,
+          role: "company_admin",
+          company_id: companyId,
+        });
+
+        if (profileError) {
+          setError(profileError.message);
+          setLoading(false);
+          return;
+        }
       }
+
+      await setUserFromSupabase(authData.session);
+      navigate("/app", { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro inesperado. Tente novamente.");
+      setError(
+        err instanceof Error ? err.message : "Erro inesperado. Tente novamente."
+      );
     } finally {
       setLoading(false);
     }
   };
+
+  async function upsertProfile(params: {
+    user_id: string;
+    email: string;
+    name: string;
+    role: "viewer" | "company_admin";
+    company_id: number | null;
+  }) {
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("user_id", params.user_id)
+      .maybeSingle();
+
+    if (existing) {
+      return supabase
+        .from("profiles")
+        .update({
+          name: params.name,
+          role: params.role,
+          company_id: params.company_id,
+        })
+        .eq("user_id", params.user_id);
+    }
+
+    return supabase.from("profiles").insert({
+      user_id: params.user_id,
+      email: params.email,
+      name: params.name,
+      role: params.role,
+      company_id: params.company_id,
+    });
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
@@ -117,19 +249,81 @@ export default function Register() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="company">Nome da empresa</Label>
-              <Input
-                id="company"
-                type="text"
-                placeholder="Minha Empresa"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                required
-                className="h-11"
-              />
+          <div className="mb-6">
+            <Label className="mb-3 block">Tipo de conta</Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setAccountType("user")}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
+                  accountType === "user"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-secondary/50 text-muted-foreground hover:border-primary/50"
+                }`}
+              >
+                <User className="w-4 h-4" />
+                Usuário
+              </button>
+              <button
+                type="button"
+                onClick={() => setAccountType("company")}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
+                  accountType === "company"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-secondary/50 text-muted-foreground hover:border-primary/50"
+                }`}
+              >
+                <Building2 className="w-4 h-4" />
+                Empresa
+              </button>
             </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {accountType === "user" ? (
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Seu nome"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required={accountType === "user"}
+                  className="h-11"
+                />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="company">Nome da empresa</Label>
+                  <Input
+                    id="company"
+                    type="text"
+                    placeholder="Minha Empresa Ltda"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    required={accountType === "company"}
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cnpj">CNPJ</Label>
+                  <Input
+                    id="cnpj"
+                    type="text"
+                    placeholder="00.000.000/0001-00"
+                    value={cnpj}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 14);
+                      setCnpj(digits.length === 14 ? formatCnpj(digits) : digits);
+                    }}
+                    required={accountType === "company"}
+                    className="h-11"
+                  />
+                </div>
+              </>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>

@@ -8,23 +8,23 @@ import {
 const features = [
   {
     icon: Activity,
-    title: "Monitoramento em tempo real",
-    description: "Acompanhe o status de cada carregador e sessão ativa em um painel unificado.",
+    title: "Gamificação para Mobilidade Elétrica",
+    description: "Transformamos o carregamento urbano em uma experiência dinâmica, baseada em progresso, metas e engajamento.",
   },
   {
     icon: Users,
-    title: "Controle de usuários",
-    description: "Gerencie perfis, permissões e acesso à plataforma com flexibilidade total.",
+    title: "Plataforma que engaja de verdade",
+    description: "Metas, rankings e evolução em tempo real.",
   },
   {
     icon: BarChart3,
-    title: "Relatórios financeiros",
-    description: "Análises detalhadas de receita, consumo e métricas para decisões estratégicas.",
+    title: "Uma rede que aprende com o uso",
+    description: "Quanto mais ativa, mais eficiente.",
   },
   {
     icon: Building2,
-    title: "Gestão multi-empresa",
-    description: "Opere múltiplas empresas e estações em um único dashboard centralizado.",
+    title: "Energia urbana com mentalidade de jogo",
+    description: "Progresso visível. Crescimento constante.",
   },
 ];
 

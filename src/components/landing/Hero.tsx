@@ -12,13 +12,13 @@ export default function Hero() {
       <div className="relative z-10 max-w-4xl mx-auto">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-8">
           <Zap className="w-4 h-4" />
-          Plataforma SaaS para mobilidade elétrica
+          Plataforma SaaS para mobilidade elétrica gamificada
         </div>
 
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-foreground mb-6">
           Gestão Inteligente de{" "}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">
-            Carregadores Veiculares
+             Recarga Elétrica Gamificada
           </span>
         </h1>
 
