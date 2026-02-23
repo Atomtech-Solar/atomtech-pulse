@@ -217,6 +217,7 @@ export type Database = {
           created_at: string;
           email: string;
           name: string | null;
+          phone: string | null;
           role: Database["public"]["Enums"]["user_role"];
           user_id: string;
         };
@@ -225,6 +226,7 @@ export type Database = {
           created_at?: string;
           email: string;
           name?: string | null;
+          phone?: string | null;
           role?: Database["public"]["Enums"]["user_role"];
           user_id: string;
         };
@@ -233,6 +235,7 @@ export type Database = {
           created_at?: string;
           email?: string;
           name?: string | null;
+          phone?: string | null;
           role?: Database["public"]["Enums"]["user_role"];
           user_id?: string;
         };

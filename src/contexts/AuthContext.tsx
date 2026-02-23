@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
   type ReactNode,
@@ -22,16 +23,34 @@ export interface AuthUser {
   name: string;
 }
 
+export type RedirectPath = "/admin/companies" | "/dashboard" | null;
+
+export function getRedirectPath(user: AuthUser | null): RedirectPath {
+  if (!user) return null;
+  if (user.role === "super_admin") return "/admin/companies";
+  if (user.company_id != null) return "/dashboard";
+  return null; // usuário vinculado a nenhuma empresa
+}
+
+/** true = autenticado mas sem company_id e não é super_admin */
+export function isBlockedUser(user: AuthUser | null): boolean {
+  if (!user) return false;
+  if (user.role === "super_admin") return false;
+  return user.company_id == null;
+}
+
 interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isBlocked: boolean;
   selectedCompanyId: number | null;
   setSelectedCompanyId: (id: number | null) => void;
   login: (email: string, password: string) => string | null;
+  loginWithSupabase: (email: string, password: string) => Promise<{ error?: string }>;
   logout: () => void;
-  loadUserFromStorage: () => void;
-  setUserFromSupabase: (session: Session) => Promise<void>;
+  loadUserFromStorage: () => Promise<void>;
+  setUserFromSupabase: (session: Session) => Promise<AuthUser | null>;
 }
 
 const MOCK_USERS: (AuthUser & { password: string })[] = [
@@ -121,18 +140,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => parseStoredCompany()
   );
 
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === "SIGNED_OUT") {
+          setUser(null);
+          setSelectedCompanyId(null);
+          localStorage.removeItem(STORAGE_KEY);
+          localStorage.removeItem(COMPANY_KEY);
+          return;
+        }
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          if (session?.user && initRan.current) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("user_id, email, name, role, company_id")
+              .eq("user_id", session.user.id)
+              .single();
+            if (profile) {
+              setUser({
+                id: profile.user_id,
+                email: profile.email,
+                role: profile.role as Role,
+                company_id: profile.company_id,
+                name: profile.name ?? profile.email,
+              });
+              if (profile.company_id != null) {
+                setSelectedCompanyId(profile.company_id);
+                localStorage.setItem(COMPANY_KEY, String(profile.company_id));
+              } else {
+                setSelectedCompanyId(null);
+                localStorage.removeItem(COMPANY_KEY);
+              }
+            }
+          }
+        }
+      }
+    );
+    return () => subscription.unsubscribe();
+  }, []);
+
   const loadUserFromStorage = useCallback(async () => {
     if (initRan.current) return;
     initRan.current = true;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        const { data: profile } = await supabase
+        const { data: profile, error } = await supabase
           .from("profiles")
           .select("user_id, email, name, role, company_id")
           .eq("user_id", session.user.id)
           .single();
-        if (profile) {
+        if (!error && profile) {
           const authUser: AuthUser = {
             id: profile.user_id,
             email: profile.email,
@@ -144,6 +203,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (profile.company_id != null) {
             setSelectedCompanyId(profile.company_id);
             localStorage.setItem(COMPANY_KEY, String(profile.company_id));
+          } else {
+            setSelectedCompanyId(null);
+            localStorage.removeItem(COMPANY_KEY);
           }
           setIsLoading(false);
           if (typeof window !== "undefined" && import.meta.env.DEV) {
@@ -154,7 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch {
-      // Supabase indisponível ou erro - fallback para mock
+      // Supabase indisponível - fallback para mock
     }
     const stored = parseStoredUser();
     setUser(stored);
@@ -201,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const setUserFromSupabase = useCallback(async (session: Session) => {
+  const setUserFromSupabase = useCallback(async (session: Session): Promise<AuthUser | null> => {
     const { data: profile } = await supabase
       .from("profiles")
       .select("user_id, email, name, role, company_id")
@@ -219,7 +281,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (profile.company_id != null) {
         setSelectedCompanyId(profile.company_id);
         localStorage.setItem(COMPANY_KEY, String(profile.company_id));
+      } else {
+        setSelectedCompanyId(null);
+        localStorage.removeItem(COMPANY_KEY);
       }
+      return authUser;
+    }
+    return null;
+  }, []);
+
+  const loginWithSupabase = useCallback(async (
+    email: string,
+    password: string
+  ): Promise<{ error?: string }> => {
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (signInError) {
+        const msg = signInError.message === "Invalid login credentials"
+          ? "Email ou senha inválidos"
+          : signInError.message;
+        return { error: msg };
+      }
+      if (!data.session?.user) return { error: "Erro ao autenticar. Tente novamente." };
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("user_id, email, name, role, company_id")
+        .eq("user_id", data.session.user.id)
+        .single();
+
+      if (profileError || !profile) {
+        return { error: "Perfil não encontrado. Entre em contato com o suporte." };
+      }
+
+      const authUser: AuthUser = {
+        id: profile.user_id,
+        email: profile.email,
+        role: profile.role as Role,
+        company_id: profile.company_id,
+        name: profile.name ?? profile.email,
+      };
+      setUser(authUser);
+      if (profile.company_id != null) {
+        setSelectedCompanyId(profile.company_id);
+        localStorage.setItem(COMPANY_KEY, String(profile.company_id));
+      } else {
+        setSelectedCompanyId(null);
+        localStorage.removeItem(COMPANY_KEY);
+      }
+      return {};
+    } catch (err) {
+      return {
+        error: err instanceof Error ? err.message : "Erro inesperado. Tente novamente.",
+      };
     }
   }, []);
 
@@ -229,9 +346,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAuthenticated: !!user,
         isLoading,
+        isBlocked: isBlockedUser(user),
         selectedCompanyId,
         setSelectedCompanyId,
         login,
+        loginWithSupabase,
         logout,
         loadUserFromStorage,
         setUserFromSupabase,

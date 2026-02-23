@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, getRedirectPath, isBlockedUser } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Zap, Eye, EyeOff } from "lucide-react";
+import { Zap, Eye, EyeOff, AlertTriangle, LogOut } from "lucide-react";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -13,32 +13,54 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { user, loginWithSupabase, isAuthenticated, isLoading, logout } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      navigate("/app", { replace: true });
-    }
-  }, [isLoading, isAuthenticated, navigate]);
+  const redirectPath = getRedirectPath(user);
+  const isBlocked = isBlockedUser(user);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (isLoading) return;
+    if (isAuthenticated && isBlocked) return; // mostra tela de bloqueio
+    if (isAuthenticated && redirectPath) {
+      navigate(redirectPath, { replace: true });
+    }
+  }, [isLoading, isAuthenticated, isBlocked, redirectPath, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const err = login(email, password);
-    if (err) {
-      setError(err);
+    const { error: loginError } = await loginWithSupabase(email, password);
+    if (loginError) {
+      setError(loginError);
       setLoading(false);
       return;
     }
     setLoading(false);
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.log("[Auth] redirect -> /app");
-    }
-    navigate("/app", { replace: true });
+    // redirect é tratado pelo useEffect quando user for atualizado
   };
+
+  if (isAuthenticated && isBlocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+        <div className="relative max-w-md mx-4 p-8 bg-card border border-border rounded-2xl shadow-xl text-center">
+          <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-7 h-7 text-destructive" />
+          </div>
+          <h1 className="text-lg font-semibold text-foreground mb-2">Acesso bloqueado</h1>
+          <p className="text-muted-foreground text-sm mb-6">
+            Usuário não vinculado a nenhuma empresa.
+          </p>
+          <Button variant="outline" className="w-full" onClick={() => logout()}>
+            <LogOut className="w-4 h-4 mr-2" />
+            Sair
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">

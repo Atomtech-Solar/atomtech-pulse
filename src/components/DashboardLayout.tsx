@@ -12,16 +12,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 const navItems = [
-  { label: 'Visão Geral', path: '/app', icon: LayoutDashboard },
-  { label: 'Sessões', path: '/app/sessions', icon: Activity },
-  { label: 'Estações', path: '/app/stations', icon: Zap },
-  { label: 'Usuários', path: '/app/users', icon: Users },
-  { label: 'Analytics', path: '/app/analytics', icon: BarChart3 },
-  { label: 'Push', path: '/app/push', icon: Bell },
-  { label: 'Vouchers', path: '/app/vouchers', icon: Ticket },
-  { label: 'Promoções', path: '/app/promotions', icon: Tag },
-  { label: 'Financeiro', path: '/app/financial', icon: DollarSign },
-  { label: 'Configurações', path: '/app/settings', icon: Settings },
+  { label: 'Visão Geral', path: '/dashboard', icon: LayoutDashboard },
+  { label: 'Sessões', path: '/dashboard/sessions', icon: Activity },
+  { label: 'Estações', path: '/dashboard/stations', icon: Zap },
+  { label: 'Usuários', path: '/dashboard/users', icon: Users },
+  { label: 'Analytics', path: '/dashboard/analytics', icon: BarChart3 },
+  { label: 'Push', path: '/dashboard/push', icon: Bell },
+  { label: 'Vouchers', path: '/dashboard/vouchers', icon: Ticket },
+  { label: 'Promoções', path: '/dashboard/promotions', icon: Tag },
+  { label: 'Financeiro', path: '/dashboard/financial', icon: DollarSign },
+  { label: 'Configurações', path: '/dashboard/settings', icon: Settings },
 ];
 
 export default function DashboardLayout() {
@@ -42,7 +42,7 @@ export default function DashboardLayout() {
   };
 
   const allNavItems = user?.role === 'super_admin'
-    ? [...navItems.slice(0, -1), { label: 'Empresas', path: '/app/companies', icon: Building2 }, navItems[navItems.length - 1]]
+    ? [...navItems.slice(0, -1), { label: 'Empresas', path: '/admin/companies', icon: Building2 }, navItems[navItems.length - 1]]
     : navItems;
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -73,7 +73,7 @@ export default function DashboardLayout() {
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {allNavItems.map(item => (
-            <NavLink key={item.path} to={item.path} end={item.path === '/app'} className={linkClass} onClick={() => setSidebarOpen(false)}>
+            <NavLink key={item.path} to={item.path} end={item.path === '/dashboard'} className={linkClass} onClick={() => setSidebarOpen(false)}>
               <item.icon className="w-4 h-4 shrink-0" />
               <span>{item.label}</span>
             </NavLink>

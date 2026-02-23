@@ -32,12 +32,10 @@ export default function Features() {
   return (
     <section className="py-24 px-4">
       <div className="max-w-6xl mx-auto">
-        <h2 className="text-3xl sm:text-4xl font-bold text-center text-foreground mb-4">
+        <h2 className="text-3xl sm:text-4xl font-bold text-center text-foreground mb-10">
         Transformando pontos de recarga em ativos estratégicos.
         </h2>
-        <p className="text-muted-foreground text-center max-w-2xl mx-auto mb-16">
-          Recursos pensados para operadores de redes de recarga de veículos elétricos.
-        </p>
+        
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {features.map((feature) => (

@@ -1,36 +1,40 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { getRedirectPath } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Zap, User, Building2 } from "lucide-react";
+import { Zap, User, Building2, Phone } from "lucide-react";
 import {
   validateCnpj,
   stripCnpj,
   formatCnpj,
 } from "@/lib/validateCnpj";
+import { formatPhoneNational, getPhoneDigits, validatePhoneBR } from "@/lib/formatPhone";
 
 type AccountType = "user" | "company";
 
 export default function Register() {
   const [accountType, setAccountType] = useState<AccountType>("user");
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [cnpj, setCnpj] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { setUserFromSupabase, isAuthenticated, isLoading } = useAuth();
+  const { user, setUserFromSupabase, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      navigate("/app", { replace: true });
+      const path = getRedirectPath(user);
+      navigate(path ?? "/login", { replace: true });
     }
-  }, [isLoading, isAuthenticated, navigate]);
+  }, [isLoading, isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +62,15 @@ export default function Register() {
         setLoading(false);
         return;
       }
+      const phoneDigits = getPhoneDigits(phone);
+      if (phoneDigits.length > 0) {
+        const phoneValidation = validatePhoneBR(phoneDigits);
+        if (!phoneValidation.valid) {
+          setError(phoneValidation.error ?? "Telefone inválido");
+          setLoading(false);
+          return;
+        }
+      }
     } else {
       if (!trimmedCompany) {
         setError("Nome da empresa é obrigatório");
@@ -80,6 +93,7 @@ export default function Register() {
           data: {
             name: accountType === "user" ? trimmedName : trimmedCompany,
             company_name: accountType === "company" ? trimmedCompany : undefined,
+            phone: accountType === "user" && getPhoneDigits(phone).length >= 10 ? `+55${getPhoneDigits(phone)}` : undefined,
           },
         },
       });
@@ -116,12 +130,14 @@ export default function Register() {
         accountType === "user" ? trimmedName : trimmedCompany;
 
       if (accountType === "user") {
+        const phoneValue = getPhoneDigits(phone).length >= 10 ? `+55${getPhoneDigits(phone)}` : null;
         const { error: profileError } = await upsertProfile({
           user_id: userId,
           email: trimmedEmail,
           name: displayName,
           role: "viewer",
           company_id: null,
+          phone: phoneValue,
         });
         if (profileError) {
           setError(profileError.message);
@@ -156,8 +172,9 @@ export default function Register() {
         }
       }
 
-      await setUserFromSupabase(authData.session);
-      navigate("/app", { replace: true });
+      const authUser = await setUserFromSupabase(authData.session);
+      const path = authUser ? getRedirectPath(authUser) : null;
+      navigate(path ?? "/login", { replace: true });
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Erro inesperado. Tente novamente."
@@ -173,6 +190,7 @@ export default function Register() {
     name: string;
     role: "viewer" | "company_admin";
     company_id: number | null;
+    phone?: string | null;
   }) {
     const { data: existing } = await supabase
       .from("profiles")
@@ -180,14 +198,17 @@ export default function Register() {
       .eq("user_id", params.user_id)
       .maybeSingle();
 
+    const profileData = {
+      name: params.name,
+      role: params.role,
+      company_id: params.company_id,
+      ...(params.phone != null && { phone: params.phone }),
+    };
+
     if (existing) {
       return supabase
         .from("profiles")
-        .update({
-          name: params.name,
-          role: params.role,
-          company_id: params.company_id,
-        })
+        .update(profileData)
         .eq("user_id", params.user_id);
     }
 
@@ -197,6 +218,7 @@ export default function Register() {
       name: params.name,
       role: params.role,
       company_id: params.company_id,
+      ...(params.phone != null && { phone: params.phone }),
     });
   }
 
@@ -252,18 +274,37 @@ export default function Register() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {accountType === "user" ? (
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Seu nome"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required={accountType === "user"}
-                  className="h-11"
-                />
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="Seu nome"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required={accountType === "user"}
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Telefone</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="61 9 9999-9999"
+                      value={phone}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                        setPhone(formatPhoneNational(digits));
+                      }}
+                      className="h-11 pl-10"
+                    />
+                  </div>
+                </div>
+              </>
             ) : (
               <>
                 <div className="space-y-2">

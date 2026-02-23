@@ -20,10 +20,10 @@ export default function Hero() {
 
         <div className="relative mb-8 h-[300px] sm:h-[360px] md:h-[430px]">
           <h1 className="relative z-10 text-6xl sm:text-7xl md:text-[130px] font-black italic tracking-tight text-white/95 drop-shadow-[0_4px_0_rgba(0,0,0,0.8)] shadow-[0_4px_12px_0_rgba(0,0,0,0.15)]">
-            TOP&nbsp;&nbsp;UP
+            TOP-UP
           </h1>
           <div className="absolute inset-0 z-0 text-6xl sm:text-7xl md:text-8xl font-black italic tracking-tight text-white/10 translate-x-1 translate-y-1 pointer-events-none">
-            TOP&nbsp;&nbsp;UP
+            TOP-UP
           </div>
           <img
             src={robotImage}
