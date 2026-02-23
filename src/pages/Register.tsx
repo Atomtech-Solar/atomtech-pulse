@@ -236,8 +236,8 @@ export default function Register() {
       <div className="absolute top-1/4 -left-32 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
       <div className="absolute bottom-1/4 -right-32 w-64 h-64 bg-accent/10 rounded-full blur-3xl" />
 
-      <div className="relative w-full max-w-md mx-4">
-        <div className="bg-card border border-border rounded-2xl p-8 shadow-xl">
+      <div className="relative w-full max-w-[600px]">
+        <div className="w-full max-w-[600px] mt-10 mb-10 mx-0 bg-card border border-border rounded-2xl p-8 shadow-xl">
           <div className="flex flex-col items-center mb-8">
             <div className="w-14 h-14 rounded-2xl gradient-primary flex items-center justify-center mb-4">
               <Zap className="w-7 h-7 text-primary-foreground" />
