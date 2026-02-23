@@ -12,6 +12,7 @@ import AdminLayout from "@/components/AdminLayout";
 import Login from "@/pages/Login";
 import Landing from "@/pages/Landing";
 import Register from "@/pages/Register";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import Overview from "@/pages/Overview";
 import Sessions from "@/pages/Sessions";
 import Stations from "@/pages/Stations";
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/cadastro" element={<Register />} />
+            <Route path="/politica-de-privacidade" element={<PrivacyPolicy />} />
             <Route path="/app/*" element={<AppRedirect />} />
             <Route element={<AdminProtectedRoute />}>
               <Route path="/admin" element={<AdminLayout />}>

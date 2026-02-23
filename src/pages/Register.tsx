@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Zap, User, Building2, Phone } from "lucide-react";
 import {
   validateCnpj,
@@ -26,6 +27,7 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [acceptedPrivacyPolicy, setAcceptedPrivacyPolicy] = useState(false);
   const { user, setUserFromSupabase, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -39,6 +41,12 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!acceptedPrivacyPolicy) {
+      setError("Você precisa aceitar a Política de Privacidade para continuar.");
+      return;
+    }
+
     setLoading(true);
 
     const trimmedEmail = email.trim().toLowerCase();
@@ -373,7 +381,7 @@ export default function Register() {
             <Button
               type="submit"
               className="w-full h-11 font-semibold"
-              disabled={loading}
+              disabled={!acceptedPrivacyPolicy || loading}
             >
               {loading ? "Cadastrando..." : "Criar conta"}
             </Button>
@@ -385,6 +393,27 @@ export default function Register() {
               Entrar
             </Link>
           </p>
+
+          <div className="mt-6 space-y-3">
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <Checkbox
+                id="privacy-policy"
+                checked={acceptedPrivacyPolicy}
+                onCheckedChange={(checked) => setAcceptedPrivacyPolicy(checked === true)}
+                className="mt-0.5 shrink-0"
+              />
+              <span className="text-sm text-muted-foreground leading-relaxed">
+                Ao criar sua conta, você declara que leu, compreendeu e concorda com a{" "}
+                <Link
+                  to="/politica-de-privacidade"
+                  className="text-primary underline underline-offset-2 hover:opacity-80 transition-opacity inline"
+                >
+                  Política de Privacidade e Proteção de Dados (LGPD)
+                </Link>
+                {" "}da Atom Tech / Top-Up, autorizando o tratamento de seus dados conforme descrito no documento.
+              </span>
+            </label>
+          </div>
         </div>
       </div>
     </div>
