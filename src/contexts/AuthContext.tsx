@@ -47,7 +47,7 @@ interface AuthContextType {
   selectedCompanyId: number | null;
   setSelectedCompanyId: (id: number | null) => void;
   login: (email: string, password: string) => string | null;
-  loginWithSupabase: (email: string, password: string) => Promise<{ error?: string }>;
+  loginWithSupabase: (email: string, password: string) => Promise<{ error?: string; redirectPath?: RedirectPath }>;
   logout: () => void;
   loadUserFromStorage: () => Promise<void>;
   setUserFromSupabase: (session: Session) => Promise<AuthUser | null>;
@@ -297,7 +297,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithSupabase = useCallback(async (
     email: string,
     password: string
-  ): Promise<{ error?: string }> => {
+  ): Promise<{ error?: string; redirectPath?: RedirectPath }> => {
+    const applyUserAndReturn = (authUser: AuthUser) => {
+      setUser(authUser);
+      if (authUser.company_id != null) {
+        setSelectedCompanyId(authUser.company_id);
+        localStorage.setItem(COMPANY_KEY, String(authUser.company_id));
+      } else {
+        setSelectedCompanyId(null);
+        localStorage.removeItem(COMPANY_KEY);
+      }
+      if (authUser.role !== "super_admin") {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
+      }
+      return { redirectPath: getRedirectPath(authUser) };
+    };
+
     try {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
@@ -336,8 +351,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSelectedCompanyId(null);
         localStorage.removeItem(COMPANY_KEY);
       }
-      return {};
+      return { redirectPath: getRedirectPath(authUser) };
     } catch (err) {
+      const fallback = MOCK_USERS.find(
+        (u) => u.email === email.trim().toLowerCase() && u.password === password
+      );
+      if (fallback) {
+        const { password: _, ...userData } = fallback;
+        return applyUserAndReturn(userData);
+      }
       return {
         error: err instanceof Error ? err.message : "Erro inesperado. Tente novamente.",
       };

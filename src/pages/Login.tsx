@@ -31,14 +31,16 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { error: loginError } = await loginWithSupabase(email, password);
+    const { error: loginError, redirectPath } = await loginWithSupabase(email, password);
     if (loginError) {
       setError(loginError);
       setLoading(false);
       return;
     }
     setLoading(false);
-    // redirect é tratado pelo useEffect quando user for atualizado
+    if (redirectPath) {
+      navigate(redirectPath, { replace: true });
+    }
   };
 
   if (isAuthenticated && isBlocked) {

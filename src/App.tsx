@@ -24,6 +24,7 @@ import Promotions from "@/pages/Promotions";
 import Financial from "@/pages/Financial";
 import SettingsPage from "@/pages/SettingsPage";
 import Companies from "@/pages/Companies";
+import LandingPageAnalytics from "@/pages/LandingPageAnalytics";
 import NotFound from "@/pages/NotFound";
 import AppRedirect from "@/components/AppRedirect";
 
@@ -47,6 +48,7 @@ const App = () => (
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<Navigate to="/admin/companies" replace />} />
                 <Route path="companies" element={<Companies />} />
+                <Route path="landing-analytics" element={<LandingPageAnalytics />} />
               </Route>
             </Route>
             <Route element={<DashboardProtectedRoute />}>

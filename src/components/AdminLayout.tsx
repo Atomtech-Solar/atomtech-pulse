@@ -1,6 +1,6 @@
 import { Outlet, NavLink } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Zap, Building2, LayoutDashboard, LogOut } from "lucide-react";
+import { Zap, Building2, LayoutDashboard, LogOut, LineChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function AdminLayout() {
@@ -32,6 +32,17 @@ export default function AdminLayout() {
           >
             <Building2 className="w-4 h-4 shrink-0" />
             Empresas
+          </NavLink>
+          <NavLink
+            to="/admin/landing-analytics"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`
+            }
+          >
+            <LineChart className="w-4 h-4 shrink-0" />
+            Landing Page
           </NavLink>
           <NavLink
             to="/dashboard"

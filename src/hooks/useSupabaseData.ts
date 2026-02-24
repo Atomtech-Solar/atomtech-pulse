@@ -12,6 +12,17 @@ import {
   filterByCompany,
 } from "@/data/mockData";
 
+const QUERY_TIMEOUT_MS = 12000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("Tempo limite excedido. Tente novamente.")), ms)
+    ),
+  ]);
+}
+
 /** Mock auth = user.id é number. Supabase = user.id é string (uuid). */
 function isMockAuth(user: { id?: number | string } | null): boolean {
   return user != null && typeof user.id === "number";
@@ -20,10 +31,12 @@ function isMockAuth(user: { id?: number | string } | null): boolean {
 export function useCompanies() {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["companies"],
+    queryKey: ["companies", user?.id],
+    retry: 1,
     queryFn: async () => {
       if (isMockAuth(user)) return companies;
-      const { data, error } = await supabase.from("companies").select("*").order("name");
+      const promise = supabase.from("companies").select("*").order("name");
+      const { data, error } = await withTimeout(promise, QUERY_TIMEOUT_MS);
       if (error) throw error;
       return data as Tables<"companies">[];
     },
@@ -162,6 +175,26 @@ export function useTariffs() {
         .order("weekday");
       if (error) throw error;
       return data as Tables<"tariffs">[];
+    },
+  });
+}
+
+/** Perfis para Admin Supremo (Landing Page Analytics). Só habilitado para super_admin. */
+export function useProfilesForAdmin() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "super_admin";
+  return useQuery({
+    queryKey: ["profiles-admin"],
+    enabled: !!isSuperAdmin,
+    retry: 1,
+    queryFn: async () => {
+      const promise = supabase
+        .from("profiles")
+        .select("*, company:companies(name)")
+        .order("created_at", { ascending: false });
+      const { data, error } = await withTimeout(promise, QUERY_TIMEOUT_MS);
+      if (error) throw error;
+      return data as (Tables<"profiles"> & { company: { name: string } | null })[];
     },
   });
 }
