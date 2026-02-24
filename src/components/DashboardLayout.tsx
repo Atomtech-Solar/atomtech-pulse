@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { Outlet, NavLink } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanies } from "@/hooks/useSupabaseData";
 import {
@@ -27,18 +27,26 @@ const navItems = [
 export default function DashboardLayout() {
   const { user, logout, selectedCompanyId, setSelectedCompanyId } = useAuth();
   const { data: companies = [] } = useCompanies();
-  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof document === "undefined") return true;
+    return document.documentElement.classList.contains("dark");
+  });
 
   const toggleTheme = () => {
-    document.documentElement.classList.toggle('dark');
-    setIsDark(!isDark);
+    const nextDark = !isDark;
+    setIsDark(nextDark);
+    if (nextDark) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("topup_theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("topup_theme", "light");
+    }
   };
 
   const handleLogout = () => {
     logout();
-    navigate("/login", { replace: true });
   };
 
   const allNavItems = user?.role === 'super_admin'

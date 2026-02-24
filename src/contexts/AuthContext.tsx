@@ -183,6 +183,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadUserFromStorage = useCallback(async () => {
     if (initRan.current) return;
     initRan.current = true;
+    const LOAD_TIMEOUT_MS = 5000;
+    const timeoutId = setTimeout(() => setIsLoading(false), LOAD_TIMEOUT_MS);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -207,6 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setSelectedCompanyId(null);
             localStorage.removeItem(COMPANY_KEY);
           }
+          clearTimeout(timeoutId);
           setIsLoading(false);
           if (typeof window !== "undefined" && import.meta.env.DEV) {
             // eslint-disable-next-line no-console
@@ -218,6 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Supabase indisponível - fallback para mock
     }
+    clearTimeout(timeoutId);
     const stored = parseStoredUser();
     setUser(stored);
     const company = parseStoredCompany();
@@ -257,9 +261,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(COMPANY_KEY);
     setUser(null);
     setSelectedCompanyId(null);
-    if (typeof window !== "undefined" && import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.log("[Auth] logout -> redirect /login");
+    if (typeof window !== "undefined") {
+      window.location.replace("/login");
+      return;
     }
   }, []);
 

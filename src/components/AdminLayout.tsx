@@ -1,15 +1,13 @@
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { Outlet, NavLink } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Zap, Building2, LayoutDashboard, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function AdminLayout() {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
-    navigate("/login", { replace: true });
   };
 
   return (
