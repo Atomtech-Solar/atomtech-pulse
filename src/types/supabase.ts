@@ -107,6 +107,8 @@ export type Database = {
           status: string;
           uf: string | null;
           users_count: number;
+          website_url: string | null;
+          logo_url: string | null;
         };
         Insert: {
           city?: string | null;
@@ -118,6 +120,8 @@ export type Database = {
           status?: string;
           uf?: string | null;
           users_count?: number;
+          website_url?: string | null;
+          logo_url?: string | null;
         };
         Update: {
           city?: string | null;
@@ -129,6 +133,8 @@ export type Database = {
           status?: string;
           uf?: string | null;
           users_count?: number;
+          website_url?: string | null;
+          logo_url?: string | null;
         };
         Relationships: [];
       };
