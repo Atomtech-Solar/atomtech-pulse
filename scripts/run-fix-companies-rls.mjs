@@ -9,7 +9,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const root = join(__dirname, "..");
+const root = process.cwd();
 const envPath = join(root, ".env");
 if (existsSync(envPath)) {
   const env = readFileSync(envPath, "utf8");
@@ -19,9 +19,10 @@ if (existsSync(envPath)) {
   }
 }
 
-const url = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
+const url = process.argv[2] || process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
 if (!url) {
-  console.error("Defina SUPABASE_DB_URL ou DATABASE_URL no ambiente (connection string do Postgres do Supabase).");
+  console.error("Uso: pnpm run db:fix-rls [SUPABASE_DB_URL]");
+  console.error("Ou defina SUPABASE_DB_URL no .env (connection string do Postgres do Supabase).");
   process.exit(1);
 }
 
