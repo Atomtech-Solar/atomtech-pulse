@@ -4,7 +4,6 @@ import { useAuth, getRedirectPath, isBlockedUser } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Zap, Eye, EyeOff, AlertTriangle, LogOut, ArrowLeft } from "lucide-react";
 
 export default function Login() {
@@ -73,6 +72,14 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
+      {loading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Entrando...</p>
+          </div>
+        </div>
+      )}
       <Link
         to="/"
         className="absolute top-4 left-4 z-10 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -138,24 +145,6 @@ export default function Login() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Checkbox id="remember" />
-                <label
-                  htmlFor="remember"
-                  className="text-sm text-muted-foreground cursor-pointer"
-                >
-                  Lembrar-me
-                </label>
-              </div>
-              <button
-                type="button"
-                className="text-sm text-primary hover:underline"
-              >
-                Esqueci minha senha
-              </button>
-            </div>
-
             {error && (
               <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg p-3 text-center">
                 {error}
@@ -170,10 +159,6 @@ export default function Login() {
               {loading ? "Entrando..." : "Entrar"}
             </Button>
           </form>
-
-          <p className="text-xs text-muted-foreground text-center mt-6">
-            admin@topup.com / empresa@topup.com — senha: 123456
-          </p>
         </div>
       </div>
     </div>

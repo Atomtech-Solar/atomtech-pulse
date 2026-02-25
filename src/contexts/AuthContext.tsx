@@ -132,8 +132,20 @@ function parseStoredCompany(): number | null {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const LOGIN_TIMEOUT_MS = 15000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, msg: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(msg)), ms)
+    ),
+  ]);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const initRan = useRef(false);
+  const loginJustCompletedRef = useRef(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(
@@ -151,6 +163,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          if (loginJustCompletedRef.current) {
+            loginJustCompletedRef.current = false;
+            return;
+          }
           if (session?.user && initRan.current) {
             const { data: profile } = await supabase
               .from("profiles")
@@ -314,10 +330,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      const signInPromise = supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password,
       });
+      const { data, error: signInError } = await withTimeout(
+        signInPromise,
+        LOGIN_TIMEOUT_MS,
+        "Tempo limite excedido. Verifique sua conexão e tente novamente."
+      );
       if (signInError) {
         const msg = signInError.message === "Invalid login credentials"
           ? "Email ou senha inválidos"
@@ -326,15 +347,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (!data.session?.user) return { error: "Erro ao autenticar. Tente novamente." };
 
-      const { data: profile, error: profileError } = await supabase
+      const profilePromise = supabase
         .from("profiles")
         .select("user_id, email, name, role, company_id")
         .eq("user_id", data.session.user.id)
         .single();
+      const { data: profile, error: profileError } = await withTimeout(
+        profilePromise,
+        LOGIN_TIMEOUT_MS,
+        "Tempo limite excedido ao buscar perfil. Tente novamente."
+      );
 
       if (profileError || !profile) {
-        return { error: "Perfil não encontrado. Entre em contato com o suporte." };
+        const msg = profileError?.message
+          ? `Perfil: ${profileError.message}`
+          : "Perfil não encontrado. Entre em contato com o suporte.";
+        return { error: msg };
       }
+
+      loginJustCompletedRef.current = true;
 
       const authUser: AuthUser = {
         id: profile.user_id,
@@ -353,6 +384,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return { redirectPath: getRedirectPath(authUser) };
     } catch (err) {
+      if (typeof window !== "undefined" && import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error("[Auth] loginWithSupabase error:", err);
+      }
       const fallback = MOCK_USERS.find(
         (u) => u.email === email.trim().toLowerCase() && u.password === password
       );
