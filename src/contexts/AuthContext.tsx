@@ -234,8 +234,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
       }
-    } catch {
-      // Supabase indisponível - fallback para mock
+    } catch (err) {
+      console.error("[Auth] loadUserFromStorage error:", err);
     }
     clearTimeout(timeoutId);
     const stored = parseStoredUser();
@@ -330,6 +330,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     try {
+      console.log("[Auth] Chamando signInWithPassword...");
+      const t1 = performance.now();
       const signInPromise = supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password,
@@ -339,6 +341,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         LOGIN_TIMEOUT_MS,
         "Tempo limite excedido. Verifique sua conexão e tente novamente."
       );
+      console.log("[Auth] signInWithPassword retornou em", (performance.now() - t1).toFixed(0), "ms", { hasError: !!signInError });
       if (signInError) {
         const msg = signInError.message === "Invalid login credentials"
           ? "Email ou senha inválidos"
@@ -347,6 +350,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (!data.session?.user) return { error: "Erro ao autenticar. Tente novamente." };
 
+      console.log("[Auth] Buscando perfil em profiles...");
+      const t2 = performance.now();
       const profilePromise = supabase
         .from("profiles")
         .select("user_id, email, name, role, company_id")
@@ -357,6 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         LOGIN_TIMEOUT_MS,
         "Tempo limite excedido ao buscar perfil. Tente novamente."
       );
+      console.log("[Auth] Busca de perfil retornou em", (performance.now() - t2).toFixed(0), "ms", { hasError: !!profileError });
 
       if (profileError || !profile) {
         const msg = profileError?.message
@@ -384,16 +390,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return { redirectPath: getRedirectPath(authUser) };
     } catch (err) {
-      if (typeof window !== "undefined" && import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
-        console.error("[Auth] loginWithSupabase error:", err);
-      }
-      const fallback = MOCK_USERS.find(
-        (u) => u.email === email.trim().toLowerCase() && u.password === password
-      );
-      if (fallback) {
-        const { password: _, ...userData } = fallback;
-        return applyUserAndReturn(userData);
+      console.error("[Auth] loginWithSupabase error:", err);
+      const isDev = import.meta.env.DEV;
+      if (isDev) {
+        const fallback = MOCK_USERS.find(
+          (u) => u.email === email.trim().toLowerCase() && u.password === password
+        );
+        if (fallback) {
+          const { password: _, ...userData } = fallback;
+          return applyUserAndReturn(userData);
+        }
       }
       return {
         error: err instanceof Error ? err.message : "Erro inesperado. Tente novamente.",

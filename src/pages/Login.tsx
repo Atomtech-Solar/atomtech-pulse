@@ -30,15 +30,21 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { error: loginError, redirectPath } = await loginWithSupabase(email, password);
-    if (loginError) {
-      setError(loginError);
+    try {
+      console.log("[Login] Iniciando login...", { email: email.replace(/.(?=@)/g, "*") });
+      const t0 = performance.now();
+      const { error: loginError, redirectPath } = await loginWithSupabase(email, password);
+      console.log("[Login] loginWithSupabase retornou em", (performance.now() - t0).toFixed(0), "ms", { hasError: !!loginError, redirectPath });
+      if (loginError) {
+        setError(loginError);
+        return;
+      }
+      if (redirectPath) {
+        console.log("[Login] Redirecionando para", redirectPath);
+        navigate(redirectPath, { replace: true });
+      }
+    } finally {
       setLoading(false);
-      return;
-    }
-    setLoading(false);
-    if (redirectPath) {
-      navigate(redirectPath, { replace: true });
     }
   };
 
