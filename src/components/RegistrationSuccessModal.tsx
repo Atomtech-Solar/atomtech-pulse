@@ -29,7 +29,7 @@ export function RegistrationSuccessModal({
 
   return (
     <AlertDialog open={open} onOpenChange={handleClose}>
-      <AlertDialogContent className="sm:max-w-md">
+      <AlertDialogContent className="sm:max-w-md z-[100]">
         <AlertDialogHeader className="text-center sm:text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
             <Zap className="h-6 w-6 text-primary" />
@@ -49,9 +49,9 @@ export function RegistrationSuccessModal({
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="flex justify-center sm:justify-center">
-          <AlertDialogAction className="w-full sm:w-auto min-w-[140px]">
-            Entendi
+          <AlertDialogFooter className="flex justify-center sm:justify-center">
+          <AlertDialogAction className="w-full sm:w-auto min-w-[160px]">
+            Continuar para Login
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

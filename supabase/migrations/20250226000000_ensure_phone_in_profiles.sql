@@ -5,6 +5,10 @@
 ALTER TABLE public.profiles
 ADD COLUMN IF NOT EXISTS phone text;
 
+-- 1b. Valor padrão para role (segurança: inserts sem role recebem viewer)
+ALTER TABLE public.profiles
+ALTER COLUMN role SET DEFAULT 'viewer';
+
 -- 2. Trigger handle_new_user com phone
 -- Cadastro como usuário -> role viewer | Cadastro como empresa -> role company_admin (create_company_for_signup ajusta depois)
 CREATE OR REPLACE FUNCTION public.handle_new_user()

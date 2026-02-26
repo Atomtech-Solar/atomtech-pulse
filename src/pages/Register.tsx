@@ -18,6 +18,9 @@ import { formatPhoneNational, getPhoneDigits, validatePhoneBR } from "@/lib/form
 
 type AccountType = "user" | "company";
 
+/** Role atribuído automaticamente pelo sistema ao cadastrar como usuário. Nunca exposto na UI. */
+const DEFAULT_USER_ROLE = "viewer" as const;
+
 export default function Register() {
   const [accountType, setAccountType] = useState<AccountType>("user");
   const [name, setName] = useState("");
@@ -31,7 +34,7 @@ export default function Register() {
   const [acceptedPrivacyPolicy, setAcceptedPrivacyPolicy] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const registrationSuccessPendingRef = useRef(false);
-  const { user, setUserFromSupabase, isAuthenticated, isLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, logout, setRegistrationSuccessPending } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -90,15 +93,6 @@ export default function Register() {
         setLoading(false);
         return;
       }
-      const phoneDigits = getPhoneDigits(phone);
-      if (phoneDigits.length > 0) {
-        const phoneValidation = validatePhoneBR(phoneDigits);
-        if (!phoneValidation.valid) {
-          setError(phoneValidation.error ?? "Telefone inválido");
-          setLoading(false);
-          return;
-        }
-      }
       const cnpjValidation = validateCnpj(cnpj);
       if (!cnpjValidation.valid) {
         setError(cnpjValidation.error ?? "CNPJ inválido");
@@ -108,6 +102,10 @@ export default function Register() {
     }
 
     try {
+      // Marca ANTES do signUp para evitar que onAuthStateChange redirecione antes do modal aparecer
+      setRegistrationSuccessPending(true);
+      registrationSuccessPendingRef.current = true;
+
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: trimmedEmail,
         password,
@@ -115,17 +113,24 @@ export default function Register() {
           data: {
             name: accountType === "user" ? trimmedName : trimmedCompany,
             company_name: accountType === "company" ? trimmedCompany : undefined,
-            phone: getPhoneDigits(phone).length >= 10 ? `+55${getPhoneDigits(phone)}` : undefined,
+            phone: accountType === "user" && getPhoneDigits(phone).length >= 10 ? `+55${getPhoneDigits(phone)}` : undefined,
           },
         },
       });
 
       if (signUpError) {
+        setRegistrationSuccessPending(false);
+        registrationSuccessPendingRef.current = false;
+        if (import.meta.env.DEV) {
+          console.error("[Register] Signup error:", signUpError);
+        }
         let message = signUpError.message;
         if (signUpError.message === "User already registered") {
           message = "Este email já está cadastrado. Faça login.";
         } else if (signUpError.message.toLowerCase().includes("email rate limit") || signUpError.message.toLowerCase().includes("rate limit exceeded")) {
           message = "Limite de tentativas excedido. Aguarde cerca de 1 hora ou desative a confirmação de email no Supabase (Auth → Providers → Email → desmarque 'Confirm email') para desenvolvimento.";
+        } else if (signUpError.message.toLowerCase().includes("database error saving new user")) {
+          message = "Erro ao criar usuário no banco. Verifique os logs do Supabase (Postgres Logs) e a trigger handle_new_user. A migration 20250227000000_fix_signup_trigger_rls.sql pode corrigir.";
         }
         setError(message);
         setLoading(false);
@@ -133,14 +138,17 @@ export default function Register() {
       }
 
       if (!authData.user) {
+        setRegistrationSuccessPending(false);
+        registrationSuccessPendingRef.current = false;
         setError("Erro ao criar conta. Tente novamente.");
         setLoading(false);
         return;
       }
 
       // Sem sessão (ex.: confirmação de email ativa), não é possível escrever em tabelas com RLS.
-      // Nesse caso, encerra o fluxo aqui e pede confirmação/login.
       if (!authData.session) {
+        setRegistrationSuccessPending(false);
+        registrationSuccessPendingRef.current = false;
         setError("Conta criada! Verifique seu email para confirmar e faça login.");
         navigate("/login", { replace: true });
         setLoading(false);
@@ -157,11 +165,13 @@ export default function Register() {
           user_id: userId,
           email: trimmedEmail,
           name: displayName,
-          role: "viewer",
+          role: DEFAULT_USER_ROLE,
           company_id: null,
           phone: phoneValue,
         });
         if (profileError) {
+          setRegistrationSuccessPending(false);
+          registrationSuccessPendingRef.current = false;
           setError(profileError.message);
           setLoading(false);
           return;
@@ -172,7 +182,6 @@ export default function Register() {
           fn: string,
           args: Record<string, unknown>
         ) => Promise<{ error: { message: string } | null }>;
-        const phoneValue = getPhoneDigits(phone).length >= 10 ? `+55${getPhoneDigits(phone)}` : null;
         const { error: rpcError } = await rpc(
           "create_company_for_signup",
           {
@@ -180,11 +189,12 @@ export default function Register() {
             p_cnpj: cnpjDigits,
             p_user_email: trimmedEmail,
             p_user_name: displayName,
-            p_phone: phoneValue,
           }
         );
 
         if (rpcError) {
+          setRegistrationSuccessPending(false);
+          registrationSuccessPendingRef.current = false;
           setError(
             rpcError.message.includes("function") ||
             rpcError.message.includes("does not exist")
@@ -196,11 +206,13 @@ export default function Register() {
         }
       }
 
-      registrationSuccessPendingRef.current = true;
-      await setUserFromSupabase(authData.session);
+      // Não chama setUserFromSupabase aqui – o onAuthStateChange ignora quando registrationSuccessPendingRef é true
+      // Assim isAuthenticated permanece false, o modal aparece na tela de cadastro e o redirect só ocorre ao fechar
       setLoading(false);
       setShowSuccessModal(true);
     } catch (err) {
+      setRegistrationSuccessPending(false);
+      registrationSuccessPendingRef.current = false;
       setError(
         err instanceof Error ? err.message : "Erro inesperado. Tente novamente."
       );
@@ -253,8 +265,9 @@ export default function Register() {
 
   const handleSuccessModalClose = async () => {
     registrationSuccessPendingRef.current = false;
+    setRegistrationSuccessPending(false);
+    setShowSuccessModal(false);
     await logout();
-    navigate("/login", { replace: true });
   };
 
   return (
@@ -375,23 +388,6 @@ export default function Register() {
                     required={accountType === "company"}
                     className="h-11"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="company-phone">Telefone de contato</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      id="company-phone"
-                      type="tel"
-                      placeholder="61 9 9999-9999"
-                      value={phone}
-                      onChange={(e) => {
-                        const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
-                        setPhone(formatPhoneNational(digits));
-                      }}
-                      className="h-11 pl-10"
-                    />
-                  </div>
                 </div>
               </>
             )}

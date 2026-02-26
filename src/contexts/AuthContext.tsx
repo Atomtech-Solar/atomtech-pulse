@@ -55,6 +55,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
   loadUserFromStorage: () => Promise<void>;
   setUserFromSupabase: (session: Session) => Promise<AuthUser | null>;
+  /** Define true quando o cadastro foi concluído e o modal de boas-vindas está pendente. Evita redirect automático. */
+  setRegistrationSuccessPending: (value: boolean) => void;
 }
 
 const MOCK_USERS: (AuthUser & { password: string })[] = [
@@ -180,6 +182,7 @@ async function fetchProfileFromSession(userId: string): Promise<AuthUser | null>
 export function AuthProvider({ children }: { children: ReactNode }) {
   const initRan = useRef(false);
   const loginJustCompletedRef = useRef(false);
+  const registrationSuccessPendingRef = useRef(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(
@@ -271,6 +274,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           event === "SIGNED_IN" ||
           event === "TOKEN_REFRESHED"
         ) {
+          // Durante cadastro: não aplicar usuário nem redirecionar – deixa o modal aparecer na tela de cadastro
+          if (registrationSuccessPendingRef.current) {
+            return;
+          }
           if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
             if (loginJustCompletedRef.current) {
               loginJustCompletedRef.current = false;
@@ -281,11 +288,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (session?.user) {
             try {
               const ok = await loadProfileAndApply(session.user.id);
-              if (!ok) {
+              if (!ok && !registrationSuccessPendingRef.current) {
                 await forceLogout();
               }
             } catch {
-              await forceLogout();
+              if (!registrationSuccessPendingRef.current) {
+                await forceLogout();
+              }
             }
           } else {
             clearAuthStorage();
@@ -481,6 +490,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyAuthUser]
   );
 
+  const setRegistrationSuccessPending = useCallback((value: boolean) => {
+    registrationSuccessPendingRef.current = value;
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -495,6 +508,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         loadUserFromStorage,
         setUserFromSupabase,
+        setRegistrationSuccessPending,
       }}
     >
       {children}
