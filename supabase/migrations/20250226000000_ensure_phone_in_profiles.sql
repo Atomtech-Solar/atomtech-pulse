@@ -6,19 +6,28 @@ ALTER TABLE public.profiles
 ADD COLUMN IF NOT EXISTS phone text;
 
 -- 2. Trigger handle_new_user com phone
+-- Cadastro como usuário -> role viewer | Cadastro como empresa -> role company_admin (create_company_for_signup ajusta depois)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_role text;
 BEGIN
+  -- Se tem company_name no metadata = cadastro empresa, senão = cadastro usuário (viewer)
+  v_role := CASE
+    WHEN (NEW.raw_user_meta_data->>'company_name') IS NOT NULL AND trim(NEW.raw_user_meta_data->>'company_name') <> '' 
+    THEN 'company_admin'
+    ELSE 'viewer'
+  END;
   INSERT INTO public.profiles (user_id, email, name, role, phone)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
-    'company_admin',
+    v_role,
     NULLIF(trim(NEW.raw_user_meta_data->>'phone'), '')
   );
   RETURN NEW;

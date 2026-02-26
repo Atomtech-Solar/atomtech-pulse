@@ -9,6 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  isSupabaseAuthError,
+  dispatchSessionInvalid,
+} from "@/lib/supabaseAuthUtils";
 import { useToast } from "@/hooks/use-toast";
 
 const statusColors = {
@@ -46,7 +50,8 @@ export default function Stations() {
       uf,
     });
     if (error) {
-      toast({ title: "Erro ao criar estação", description: error.message, variant: "destructive" });
+      if (isSupabaseAuthError(error)) dispatchSessionInvalid();
+      else toast({ title: "Erro ao criar estação", description: error.message, variant: "destructive" });
       return;
     }
     toast({ title: "Estação criada", description: name });

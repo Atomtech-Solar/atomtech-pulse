@@ -9,6 +9,10 @@ import { Settings, Users, Shield } from "lucide-react";
 import { useCompanySettings } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  isSupabaseAuthError,
+  dispatchSessionInvalid,
+} from "@/lib/supabaseAuthUtils";
 import { useToast } from "@/hooks/use-toast";
 
 const employees = [
@@ -47,7 +51,8 @@ export default function SettingsPage() {
       .from("company_settings")
       .upsert(payload, { onConflict: "company_id" });
     if (error) {
-      toast({ title: "Erro ao salvar configurações", description: error.message, variant: "destructive" });
+      if (isSupabaseAuthError(error)) dispatchSessionInvalid();
+      else toast({ title: "Erro ao salvar configurações", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Configurações salvas", description: "Preferências atualizadas com sucesso." });
       refetch();

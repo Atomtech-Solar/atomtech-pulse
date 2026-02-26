@@ -1,8 +1,13 @@
+import { useMemo } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  isSupabaseAuthError,
+  dispatchSessionInvalid,
+} from "@/lib/supabaseAuthUtils";
 import { AuthProvider } from "@/contexts/AuthContext";
 import AuthInit from "@/components/AuthInit";
 import AdminProtectedRoute from "@/components/AdminProtectedRoute";
@@ -28,9 +33,37 @@ import LandingPageAnalytics from "@/pages/LandingPageAnalytics";
 import NotFound from "@/pages/NotFound";
 import AppRedirect from "@/components/AppRedirect";
 
-const queryClient = new QueryClient();
+function createQueryClient() {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: (failureCount, error) => {
+          if (isSupabaseAuthError(error)) {
+            dispatchSessionInvalid();
+            return false;
+          }
+          return failureCount < 2;
+        },
+      },
+    },
+  });
+  client.getQueryCache().subscribe((event) => {
+    if (
+      event.type === "updated" &&
+      event.query.state.status === "error" &&
+      event.query.state.error
+    ) {
+      if (isSupabaseAuthError(event.query.state.error)) {
+        dispatchSessionInvalid();
+      }
+    }
+  });
+  return client;
+}
 
-const App = () => (
+const App = () => {
+  const queryClient = useMemo(createQueryClient, []);
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -73,6 +106,7 @@ const App = () => (
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;

@@ -9,6 +9,10 @@ import {
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  isSupabaseAuthError,
+  onSessionInvalid,
+} from "@/lib/supabaseAuthUtils";
 
 const STORAGE_KEY = "topup_user";
 const COMPANY_KEY = "topup_company";
@@ -29,7 +33,7 @@ export function getRedirectPath(user: AuthUser | null): RedirectPath {
   if (!user) return null;
   if (user.role === "super_admin") return "/admin/companies";
   if (user.company_id != null) return "/dashboard";
-  return null; // usuário vinculado a nenhuma empresa
+  return null;
 }
 
 /** true = autenticado mas sem company_id e não é super_admin */
@@ -48,7 +52,7 @@ interface AuthContextType {
   setSelectedCompanyId: (id: number | null) => void;
   login: (email: string, password: string) => string | null;
   loginWithSupabase: (email: string, password: string) => Promise<{ error?: string; redirectPath?: RedirectPath }>;
-  logout: () => void;
+  logout: () => Promise<void>;
   loadUserFromStorage: () => Promise<void>;
   setUserFromSupabase: (session: Session) => Promise<AuthUser | null>;
 }
@@ -130,9 +134,15 @@ function parseStoredCompany(): number | null {
   }
 }
 
+function clearAuthStorage(): void {
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(COMPANY_KEY);
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const LOGIN_TIMEOUT_MS = 15000;
+const SESSION_LOAD_TIMEOUT_MS = 8000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, msg: string): Promise<T> {
   return Promise.race([
@@ -141,6 +151,30 @@ function withTimeout<T>(promise: Promise<T>, ms: number, msg: string): Promise<T
       setTimeout(() => reject(new Error(msg)), ms)
     ),
   ]);
+}
+
+async function fetchProfileFromSession(userId: string): Promise<AuthUser | null> {
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("user_id, email, name, role, company_id")
+    .eq("user_id", userId)
+    .single();
+
+  if (error) {
+    if (isSupabaseAuthError(error)) {
+      throw error;
+    }
+    return null;
+  }
+  if (!profile) return null;
+
+  return {
+    id: profile.user_id,
+    email: profile.email,
+    role: profile.role as Role,
+    company_id: profile.company_id,
+    name: profile.name ?? profile.email,
+  };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -152,102 +186,183 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => parseStoredCompany()
   );
 
+  const applyAuthUser = useCallback((authUser: AuthUser | null) => {
+    setUser(authUser);
+    if (authUser?.company_id != null) {
+      setSelectedCompanyId(authUser.company_id);
+      localStorage.setItem(COMPANY_KEY, String(authUser.company_id));
+    } else {
+      setSelectedCompanyId(null);
+      localStorage.removeItem(COMPANY_KEY);
+    }
+    if (authUser && authUser.role !== "super_admin") {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
+    } else if (!authUser) {
+      clearAuthStorage();
+    }
+  }, []);
+
+  const loadProfileAndApply = useCallback(
+    async (userId: string): Promise<boolean> => {
+      try {
+        const authUser = await fetchProfileFromSession(userId);
+        if (authUser) {
+          applyAuthUser(authUser);
+          return true;
+        }
+      } catch (err) {
+        if (isSupabaseAuthError(err)) {
+          console.warn("[Auth] Erro de autenticação ao buscar perfil:", err);
+          return false;
+        }
+      }
+      return false;
+    },
+    [applyAuthUser]
+  );
+
+  const forceLogout = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      /* ignore */
+    }
+    clearAuthStorage();
+    setUser(null);
+    setSelectedCompanyId(null);
+    if (typeof window !== "undefined") {
+      window.location.replace("/login");
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      /* ignore */
+    }
+    clearAuthStorage();
+    setUser(null);
+    setSelectedCompanyId(null);
+    if (typeof window !== "undefined") {
+      window.location.replace("/login");
+    }
+  }, []);
+
+  useEffect(() => {
+    const unsubSessionInvalid = onSessionInvalid(() => {
+      forceLogout();
+    });
+    return unsubSessionInvalid;
+  }, [forceLogout]);
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === "SIGNED_OUT") {
+          clearAuthStorage();
           setUser(null);
           setSelectedCompanyId(null);
-          localStorage.removeItem(STORAGE_KEY);
-          localStorage.removeItem(COMPANY_KEY);
           return;
         }
-        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          if (loginJustCompletedRef.current) {
-            loginJustCompletedRef.current = false;
-            return;
-          }
-          if (session?.user && initRan.current) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("user_id, email, name, role, company_id")
-              .eq("user_id", session.user.id)
-              .single();
-            if (profile) {
-              setUser({
-                id: profile.user_id,
-                email: profile.email,
-                role: profile.role as Role,
-                company_id: profile.company_id,
-                name: profile.name ?? profile.email,
-              });
-              if (profile.company_id != null) {
-                setSelectedCompanyId(profile.company_id);
-                localStorage.setItem(COMPANY_KEY, String(profile.company_id));
-              } else {
-                setSelectedCompanyId(null);
-                localStorage.removeItem(COMPANY_KEY);
-              }
+
+        if (
+          event === "INITIAL_SESSION" ||
+          event === "SIGNED_IN" ||
+          event === "TOKEN_REFRESHED"
+        ) {
+          if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+            if (loginJustCompletedRef.current) {
+              loginJustCompletedRef.current = false;
+              return;
             }
+          }
+
+          if (session?.user) {
+            try {
+              const ok = await loadProfileAndApply(session.user.id);
+              if (!ok) {
+                await forceLogout();
+              }
+            } catch {
+              await forceLogout();
+            }
+          } else {
+            clearAuthStorage();
+            setUser(null);
+            setSelectedCompanyId(null);
           }
         }
       }
     );
     return () => subscription.unsubscribe();
-  }, []);
+  }, [loadProfileAndApply, forceLogout]);
 
   const loadUserFromStorage = useCallback(async () => {
     if (initRan.current) return;
     initRan.current = true;
-    const LOAD_TIMEOUT_MS = 5000;
-    const timeoutId = setTimeout(() => setIsLoading(false), LOAD_TIMEOUT_MS);
+
+    const timeoutId = setTimeout(() => setIsLoading(false), SESSION_LOAD_TIMEOUT_MS);
+
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await withTimeout(
+        supabase.auth.getSession(),
+        SESSION_LOAD_TIMEOUT_MS,
+        "Timeout ao recuperar sessão."
+      );
+
+      clearTimeout(timeoutId);
+
+      if (sessionError) {
+        console.warn("[Auth] Erro ao obter sessão:", sessionError);
+        clearAuthStorage();
+        setUser(null);
+        setSelectedCompanyId(null);
+        setIsLoading(false);
+        return;
+      }
+
       if (session?.user) {
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("user_id, email, name, role, company_id")
-          .eq("user_id", session.user.id)
-          .single();
-        if (!error && profile) {
-          const authUser: AuthUser = {
-            id: profile.user_id,
-            email: profile.email,
-            role: profile.role as Role,
-            company_id: profile.company_id,
-            name: profile.name ?? profile.email,
-          };
-          setUser(authUser);
-          if (profile.company_id != null) {
-            setSelectedCompanyId(profile.company_id);
-            localStorage.setItem(COMPANY_KEY, String(profile.company_id));
-          } else {
-            setSelectedCompanyId(null);
-            localStorage.removeItem(COMPANY_KEY);
+        try {
+          const ok = await loadProfileAndApply(session.user.id);
+          if (!ok) {
+            await forceLogout();
           }
-          clearTimeout(timeoutId);
-          setIsLoading(false);
-          if (typeof window !== "undefined" && import.meta.env.DEV) {
-            // eslint-disable-next-line no-console
-            console.log("[Auth] Supabase session restored", authUser.email);
-          }
-          return;
+        } catch {
+          await forceLogout();
+        }
+        if (import.meta.env.DEV) {
+          console.log("[Auth] Sessão restaurada:", session.user.email);
+        }
+      } else {
+        setUser(null);
+        setSelectedCompanyId(null);
+        const stored = parseStoredUser();
+        if (stored) {
+          setUser(stored);
+          const company = parseStoredCompany();
+          if (company !== null) setSelectedCompanyId(company);
+        } else {
+          clearAuthStorage();
         }
       }
     } catch (err) {
       console.error("[Auth] loadUserFromStorage error:", err);
+      clearTimeout(timeoutId);
+      setUser(null);
+      setSelectedCompanyId(null);
+      const stored = parseStoredUser();
+      if (stored) {
+        setUser(stored);
+        const company = parseStoredCompany();
+        if (company !== null) setSelectedCompanyId(company);
+      } else {
+        clearAuthStorage();
+      }
+    } finally {
+      setIsLoading(false);
     }
-    clearTimeout(timeoutId);
-    const stored = parseStoredUser();
-    setUser(stored);
-    const company = parseStoredCompany();
-    if (company !== null) setSelectedCompanyId(company);
-    setIsLoading(false);
-    if (typeof window !== "undefined" && import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.log("[Auth] loadUserFromStorage", stored ? "user restored (mock)" : "no user");
-    }
-  }, []);
+  }, [loadProfileAndApply, forceLogout]);
 
   const login = useCallback((email: string, password: string): string | null => {
     const found = MOCK_USERS.find(
@@ -255,157 +370,116 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
     if (!found) return "Email ou senha inválidos";
     const { password: _, ...userData } = found;
-    setUser(userData);
-    if (userData.role !== "super_admin" && userData.company_id != null) {
-      setSelectedCompanyId(userData.company_id);
-      localStorage.setItem(COMPANY_KEY, String(userData.company_id));
-    } else {
-      localStorage.removeItem(COMPANY_KEY);
-    }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+    applyAuthUser(userData);
     setIsLoading(false);
-    if (typeof window !== "undefined" && import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.log("[Auth] login success", userData.email, "-> redirect /");
+    if (import.meta.env.DEV) {
+      console.log("[Auth] login success (mock)", userData.email);
     }
     return null;
-  }, []);
+  }, [applyAuthUser]);
 
-  const logout = useCallback(async () => {
-    await supabase.auth.signOut();
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(COMPANY_KEY);
-    setUser(null);
-    setSelectedCompanyId(null);
-    if (typeof window !== "undefined") {
-      window.location.replace("/login");
-      return;
-    }
-  }, []);
-
-  const setUserFromSupabase = useCallback(async (session: Session): Promise<AuthUser | null> => {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("user_id, email, name, role, company_id")
-      .eq("user_id", session.user.id)
-      .single();
-    if (profile) {
-      const authUser: AuthUser = {
-        id: profile.user_id,
-        email: profile.email,
-        role: profile.role as Role,
-        company_id: profile.company_id,
-        name: profile.name ?? profile.email,
-      };
-      setUser(authUser);
-      if (profile.company_id != null) {
-        setSelectedCompanyId(profile.company_id);
-        localStorage.setItem(COMPANY_KEY, String(profile.company_id));
-      } else {
-        setSelectedCompanyId(null);
-        localStorage.removeItem(COMPANY_KEY);
-      }
-      return authUser;
-    }
-    return null;
-  }, []);
-
-  const loginWithSupabase = useCallback(async (
-    email: string,
-    password: string
-  ): Promise<{ error?: string; redirectPath?: RedirectPath }> => {
-    const applyUserAndReturn = (authUser: AuthUser) => {
-      setUser(authUser);
-      if (authUser.company_id != null) {
-        setSelectedCompanyId(authUser.company_id);
-        localStorage.setItem(COMPANY_KEY, String(authUser.company_id));
-      } else {
-        setSelectedCompanyId(null);
-        localStorage.removeItem(COMPANY_KEY);
-      }
-      if (authUser.role !== "super_admin") {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
-      }
-      return { redirectPath: getRedirectPath(authUser) };
-    };
-
-    try {
-      console.log("[Auth] Chamando signInWithPassword...");
-      const t1 = performance.now();
-      const signInPromise = supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
-      const { data, error: signInError } = await withTimeout(
-        signInPromise,
-        LOGIN_TIMEOUT_MS,
-        "Tempo limite excedido. Verifique sua conexão e tente novamente."
-      );
-      console.log("[Auth] signInWithPassword retornou em", (performance.now() - t1).toFixed(0), "ms", { hasError: !!signInError });
-      if (signInError) {
-        const msg = signInError.message === "Invalid login credentials"
-          ? "Email ou senha inválidos"
-          : signInError.message;
-        return { error: msg };
-      }
-      if (!data.session?.user) return { error: "Erro ao autenticar. Tente novamente." };
-
-      console.log("[Auth] Buscando perfil em profiles...");
-      const t2 = performance.now();
-      const profilePromise = supabase
-        .from("profiles")
-        .select("user_id, email, name, role, company_id")
-        .eq("user_id", data.session.user.id)
-        .single();
-      const { data: profile, error: profileError } = await withTimeout(
-        profilePromise,
-        LOGIN_TIMEOUT_MS,
-        "Tempo limite excedido ao buscar perfil. Tente novamente."
-      );
-      console.log("[Auth] Busca de perfil retornou em", (performance.now() - t2).toFixed(0), "ms", { hasError: !!profileError });
-
-      if (profileError || !profile) {
-        const msg = profileError?.message
-          ? `Perfil: ${profileError.message}`
-          : "Perfil não encontrado. Entre em contato com o suporte.";
-        return { error: msg };
-      }
-
-      loginJustCompletedRef.current = true;
-
-      const authUser: AuthUser = {
-        id: profile.user_id,
-        email: profile.email,
-        role: profile.role as Role,
-        company_id: profile.company_id,
-        name: profile.name ?? profile.email,
-      };
-      setUser(authUser);
-      if (profile.company_id != null) {
-        setSelectedCompanyId(profile.company_id);
-        localStorage.setItem(COMPANY_KEY, String(profile.company_id));
-      } else {
-        setSelectedCompanyId(null);
-        localStorage.removeItem(COMPANY_KEY);
-      }
-      return { redirectPath: getRedirectPath(authUser) };
-    } catch (err) {
-      console.error("[Auth] loginWithSupabase error:", err);
-      const isDev = import.meta.env.DEV;
-      if (isDev) {
-        const fallback = MOCK_USERS.find(
-          (u) => u.email === email.trim().toLowerCase() && u.password === password
-        );
-        if (fallback) {
-          const { password: _, ...userData } = fallback;
-          return applyUserAndReturn(userData);
+  const setUserFromSupabase = useCallback(
+    async (session: Session): Promise<AuthUser | null> => {
+      try {
+        const authUser = await fetchProfileFromSession(session.user.id);
+        if (authUser) {
+          applyAuthUser(authUser);
+          return authUser;
         }
+      } catch {
+        /* ignore */
       }
-      return {
-        error: err instanceof Error ? err.message : "Erro inesperado. Tente novamente.",
+      return null;
+    },
+    [applyAuthUser]
+  );
+
+  const loginWithSupabase = useCallback(
+    async (
+      email: string,
+      password: string
+    ): Promise<{ error?: string; redirectPath?: RedirectPath }> => {
+      const applyUserAndReturn = (authUser: AuthUser) => {
+        applyAuthUser(authUser);
+        return { redirectPath: getRedirectPath(authUser) };
       };
-    }
-  }, []);
+
+      try {
+        const signInPromise = supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        });
+        const { data, error: signInError } = await withTimeout(
+          signInPromise,
+          LOGIN_TIMEOUT_MS,
+          "Tempo limite excedido. Verifique sua conexão e tente novamente."
+        );
+
+        if (signInError) {
+          const msg =
+            signInError.message === "Invalid login credentials"
+              ? "Email ou senha inválidos"
+              : signInError.message;
+          return { error: msg };
+        }
+        if (!data.session?.user)
+          return { error: "Erro ao autenticar. Tente novamente." };
+
+        const profilePromise = supabase
+          .from("profiles")
+          .select("user_id, email, name, role, company_id")
+          .eq("user_id", data.session.user.id)
+          .single();
+        const { data: profile, error: profileError } = await withTimeout(
+          (async () => {
+            const res = await profilePromise;
+            return { data: res.data, error: res.error };
+          })(),
+          LOGIN_TIMEOUT_MS,
+          "Tempo limite excedido ao buscar perfil. Tente novamente."
+        );
+
+        if (profileError || !profile) {
+          const msg = profileError?.message
+            ? `Perfil: ${profileError.message}`
+            : "Perfil não encontrado. Entre em contato com o suporte.";
+          return { error: msg };
+        }
+
+        loginJustCompletedRef.current = true;
+
+        const authUser: AuthUser = {
+          id: profile.user_id,
+          email: profile.email,
+          role: profile.role as Role,
+          company_id: profile.company_id,
+          name: profile.name ?? profile.email,
+        };
+        applyAuthUser(authUser);
+        return { redirectPath: getRedirectPath(authUser) };
+      } catch (err) {
+        console.error("[Auth] loginWithSupabase error:", err);
+        const isDev = import.meta.env.DEV;
+        if (isDev) {
+          const fallback = MOCK_USERS.find(
+            (u) =>
+              u.email === email.trim().toLowerCase() && u.password === password
+          );
+          if (fallback) {
+            const { password: _, ...userData } = fallback;
+            return applyUserAndReturn(userData);
+          }
+        }
+        return {
+          error:
+            err instanceof Error
+              ? err.message
+              : "Erro inesperado. Tente novamente.",
+        };
+      }
+    },
+    [applyAuthUser]
+  );
 
   return (
     <AuthContext.Provider

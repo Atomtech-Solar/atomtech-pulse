@@ -34,5 +34,11 @@ if (typeof window !== "undefined") {
 const url = supabaseUrl ?? "";
 const key = supabaseAnonKey ?? "";
 
-export const supabase = createClient<Database>(url, key);
+export const supabase = createClient<Database>(url, key, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
 

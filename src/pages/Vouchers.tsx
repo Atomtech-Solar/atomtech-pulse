@@ -8,6 +8,10 @@ import { useVouchers } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/hooks/use-toast";
+import {
+  isSupabaseAuthError,
+  dispatchSessionInvalid,
+} from "@/lib/supabaseAuthUtils";
 
 export default function Vouchers() {
   const { selectedCompanyId, user } = useAuth();
@@ -32,7 +36,8 @@ export default function Vouchers() {
     });
     setCreating(false);
     if (error) {
-      toast({ title: "Erro ao criar voucher", description: error.message, variant: "destructive" });
+      if (isSupabaseAuthError(error)) dispatchSessionInvalid();
+      else toast({ title: "Erro ao criar voucher", description: error.message, variant: "destructive" });
       return;
     }
     toast({ title: "Voucher criado", description: code });

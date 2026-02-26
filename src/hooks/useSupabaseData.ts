@@ -3,6 +3,10 @@ import { supabase } from "@/lib/supabaseClient";
 import type { Tables } from "@/types/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import {
+  isSupabaseAuthError,
+  dispatchSessionInvalid,
+} from "@/lib/supabaseAuthUtils";
+import {
   companies,
   stations,
   sessions,
@@ -13,6 +17,13 @@ import {
 } from "@/data/mockData";
 
 const QUERY_TIMEOUT_MS = 12000;
+
+function handleQueryError(error: unknown): never {
+  if (isSupabaseAuthError(error)) {
+    dispatchSessionInvalid();
+  }
+  throw error;
+}
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -37,7 +48,7 @@ export function useCompanies() {
       if (isMockAuth(user)) return companies;
       const promise = supabase.from("companies").select("*").order("name");
       const { data, error } = await withTimeout(promise, QUERY_TIMEOUT_MS);
-      if (error) throw error;
+      if (error) handleQueryError(error);
       return data as Tables<"companies">[];
     },
   });
@@ -57,7 +68,7 @@ export function useStations() {
         query = query.eq("company_id", selectedCompanyId);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) handleQueryError(error);
       return data as (Tables<"stations"> & { station_connectors: Tables<"station_connectors">[] })[];
     },
   });
@@ -77,7 +88,7 @@ export function useSessions() {
         query = query.eq("company_id", selectedCompanyId);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) handleQueryError(error);
       return data as Tables<"v_sessions_list">[];
     },
   });
@@ -97,7 +108,7 @@ export function useEvUsers() {
         query = query.eq("company_id", selectedCompanyId);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) handleQueryError(error);
       return data as Tables<"ev_users">[];
     },
   });
@@ -117,7 +128,7 @@ export function useVouchers() {
         query = query.eq("company_id", selectedCompanyId);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) handleQueryError(error);
       return data as Tables<"vouchers">[];
     },
   });
@@ -137,7 +148,7 @@ export function usePushNotifications() {
         query = query.eq("company_id", selectedCompanyId);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) handleQueryError(error);
       return data as Tables<"push_notifications">[];
     },
   });
@@ -155,7 +166,7 @@ export function useCompanySettings() {
         .select("*")
         .eq("company_id", selectedCompanyId)
         .single();
-      if (error) throw error;
+      if (error) handleQueryError(error);
       return data as Tables<"company_settings">;
     },
   });
@@ -173,7 +184,7 @@ export function useTariffs() {
         .select("*")
         .eq("company_id", selectedCompanyId)
         .order("weekday");
-      if (error) throw error;
+      if (error) handleQueryError(error);
       return data as Tables<"tariffs">[];
     },
   });
@@ -193,7 +204,7 @@ export function useProfilesForAdmin() {
         .select("*, company:companies(name)")
         .order("created_at", { ascending: false });
       const { data, error } = await withTimeout(promise, QUERY_TIMEOUT_MS);
-      if (error) throw error;
+      if (error) handleQueryError(error);
       return data as (Tables<"profiles"> & { company: { name: string } | null })[];
     },
   });
@@ -240,7 +251,7 @@ export function useStationRevenue() {
         query = query.eq("company_id", selectedCompanyId);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) handleQueryError(error);
       return data as Tables<"v_station_revenue">[];
     },
   });
