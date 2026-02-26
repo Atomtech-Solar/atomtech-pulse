@@ -20,7 +20,7 @@ export default function Login() {
 
   useEffect(() => {
     if (isLoading) return;
-    if (isAuthenticated && isBlocked) return; // mostra tela de bloqueio
+    if (isAuthenticated && isBlocked) return;
     if (isAuthenticated && redirectPath) {
       navigate(redirectPath, { replace: true });
     }
@@ -33,15 +33,14 @@ export default function Login() {
     try {
       console.log("[Login] Iniciando login...", { email: email.replace(/.(?=@)/g, "*") });
       const t0 = performance.now();
-      const { error: loginError, redirectPath } = await loginWithSupabase(email, password);
-      console.log("[Login] loginWithSupabase retornou em", (performance.now() - t0).toFixed(0), "ms", { hasError: !!loginError, redirectPath });
+      const { error: loginError, redirectPath: path } = await loginWithSupabase(email, password);
+      console.log("[Login] loginWithSupabase retornou em", (performance.now() - t0).toFixed(0), "ms", { hasError: !!loginError, redirectPath: path });
       if (loginError) {
         setError(loginError);
         return;
       }
-      if (redirectPath) {
-        console.log("[Login] Redirecionando para", redirectPath);
-        navigate(redirectPath, { replace: true });
+      if (path) {
+        navigate(path, { replace: true });
       }
     } finally {
       setLoading(false);

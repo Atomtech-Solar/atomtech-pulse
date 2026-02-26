@@ -30,9 +30,8 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [acceptedPrivacyPolicy, setAcceptedPrivacyPolicy] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [redirectPath, setRedirectPath] = useState<string | null>(null);
   const registrationSuccessPendingRef = useRef(false);
-  const { user, setUserFromSupabase, isAuthenticated, isLoading } = useAuth();
+  const { user, setUserFromSupabase, isAuthenticated, isLoading, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -198,10 +197,8 @@ export default function Register() {
       }
 
       registrationSuccessPendingRef.current = true;
-      const authUser = await setUserFromSupabase(authData.session);
-      const path = authUser ? getRedirectPath(authUser) : "/login";
+      await setUserFromSupabase(authData.session);
       setLoading(false);
-      setRedirectPath(path);
       setShowSuccessModal(true);
     } catch (err) {
       setError(
@@ -254,9 +251,10 @@ export default function Register() {
     });
   }
 
-  const handleSuccessModalClose = () => {
+  const handleSuccessModalClose = async () => {
     registrationSuccessPendingRef.current = false;
-    navigate(redirectPath ?? "/login", { replace: true });
+    await logout();
+    navigate("/login", { replace: true });
   };
 
   return (
