@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getRedirectPath } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { RegistrationSuccessModal } from "@/components/RegistrationSuccessModal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,10 +29,15 @@ export default function Register() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [acceptedPrivacyPolicy, setAcceptedPrivacyPolicy] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [redirectPath, setRedirectPath] = useState<string | null>(null);
+  const registrationSuccessPendingRef = useRef(false);
   const { user, setUserFromSupabase, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Não redirecionar se o modal de sucesso do cadastro estiver pendente
+    if (registrationSuccessPendingRef.current) return;
     if (!isLoading && isAuthenticated) {
       const path = getRedirectPath(user);
       navigate(path ?? "/login", { replace: true });
@@ -85,6 +91,15 @@ export default function Register() {
         setLoading(false);
         return;
       }
+      const phoneDigits = getPhoneDigits(phone);
+      if (phoneDigits.length > 0) {
+        const phoneValidation = validatePhoneBR(phoneDigits);
+        if (!phoneValidation.valid) {
+          setError(phoneValidation.error ?? "Telefone inválido");
+          setLoading(false);
+          return;
+        }
+      }
       const cnpjValidation = validateCnpj(cnpj);
       if (!cnpjValidation.valid) {
         setError(cnpjValidation.error ?? "CNPJ inválido");
@@ -101,7 +116,7 @@ export default function Register() {
           data: {
             name: accountType === "user" ? trimmedName : trimmedCompany,
             company_name: accountType === "company" ? trimmedCompany : undefined,
-            phone: accountType === "user" && getPhoneDigits(phone).length >= 10 ? `+55${getPhoneDigits(phone)}` : undefined,
+            phone: getPhoneDigits(phone).length >= 10 ? `+55${getPhoneDigits(phone)}` : undefined,
           },
         },
       });
@@ -158,6 +173,7 @@ export default function Register() {
           fn: string,
           args: Record<string, unknown>
         ) => Promise<{ error: { message: string } | null }>;
+        const phoneValue = getPhoneDigits(phone).length >= 10 ? `+55${getPhoneDigits(phone)}` : null;
         const { error: rpcError } = await rpc(
           "create_company_for_signup",
           {
@@ -165,6 +181,7 @@ export default function Register() {
             p_cnpj: cnpjDigits,
             p_user_email: trimmedEmail,
             p_user_name: displayName,
+            p_phone: phoneValue,
           }
         );
 
@@ -180,9 +197,12 @@ export default function Register() {
         }
       }
 
+      registrationSuccessPendingRef.current = true;
       const authUser = await setUserFromSupabase(authData.session);
-      const path = authUser ? getRedirectPath(authUser) : null;
-      navigate(path ?? "/login", { replace: true });
+      const path = authUser ? getRedirectPath(authUser) : "/login";
+      setLoading(false);
+      setRedirectPath(path);
+      setShowSuccessModal(true);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Erro inesperado. Tente novamente."
@@ -206,11 +226,17 @@ export default function Register() {
       .eq("user_id", params.user_id)
       .maybeSingle();
 
-    const profileData = {
+    const hasPhone = typeof params.phone === "string" && params.phone.trim().length > 0;
+    const phoneValue = hasPhone ? (params.phone as string).trim() : undefined;
+
+    const baseData = {
       name: params.name,
       role: params.role,
       company_id: params.company_id,
-      ...(params.phone != null && { phone: params.phone }),
+    };
+    const profileData = {
+      ...baseData,
+      ...(phoneValue && { phone: phoneValue }),
     };
 
     if (existing) {
@@ -221,14 +247,17 @@ export default function Register() {
     }
 
     return supabase.from("profiles").insert({
+      ...baseData,
       user_id: params.user_id,
       email: params.email,
-      name: params.name,
-      role: params.role,
-      company_id: params.company_id,
-      ...(params.phone != null && { phone: params.phone }),
+      ...(phoneValue && { phone: phoneValue }),
     });
   }
+
+  const handleSuccessModalClose = () => {
+    registrationSuccessPendingRef.current = false;
+    navigate(redirectPath ?? "/login", { replace: true });
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
@@ -349,6 +378,23 @@ export default function Register() {
                     className="h-11"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="company-phone">Telefone de contato</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="company-phone"
+                      type="tel"
+                      placeholder="61 9 9999-9999"
+                      value={phone}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                        setPhone(formatPhoneNational(digits));
+                      }}
+                      className="h-11 pl-10"
+                    />
+                  </div>
+                </div>
               </>
             )}
 
@@ -423,6 +469,11 @@ export default function Register() {
           </div>
         </div>
       </div>
+      <RegistrationSuccessModal
+        open={showSuccessModal}
+        onOpenChange={setShowSuccessModal}
+        onClose={handleSuccessModalClose}
+      />
     </div>
   );
 }
