@@ -107,7 +107,7 @@ export default function Register() {
           : null;
       const cnpjDigits = accountType === "company" ? stripCnpj(cnpj) : null;
 
-      const { error: registrationError } = await createRegistration({
+      const { error: registrationError, timedOut } = await createRegistration({
         name: displayName,
         email: trimmedEmail,
         account_type: accountType,
@@ -117,18 +117,18 @@ export default function Register() {
       });
 
       if (registrationError) {
-        if (registrationError.toLowerCase().includes("duplicate")) {
+        if (timedOut || registrationError === "TIMEOUT") {
+          setError("Erro de conexão com servidor.");
+        } else if (registrationError.toLowerCase().includes("duplicate")) {
           setError("Este email já possui um cadastro pendente.");
         } else {
-          setError(registrationError);
+          setError("Erro de conexão com servidor.");
         }
-        setLoading(false);
         return;
       }
 
       // Cadastro concluído com sucesso via insert direto na tabela registrations.
       // O redirecionamento para login ocorre somente ao fechar o modal.
-      setLoading(false);
       setShowSuccessModal(true);
     } catch (err) {
       setRegistrationSuccessPending(false);

@@ -10,6 +10,8 @@ if (typeof window !== "undefined") {
   const isProd = import.meta.env.PROD;
   const env = isProd ? "produção" : "desenvolvimento";
 
+  console.log("[Supabase] URL:", import.meta.env.VITE_SUPABASE_URL);
+  console.log("[Supabase] KEY exists:", !!import.meta.env.VITE_SUPABASE_ANON_KEY);
   console.log("[Supabase] Ambiente:", env);
   console.log("[Supabase] VITE_SUPABASE_URL:", supabaseUrl ?? "undefined", supabaseUrl ? `(${supabaseUrl.length} chars)` : "");
   // Key: mostra só início e fim para debug (não expor completa)
