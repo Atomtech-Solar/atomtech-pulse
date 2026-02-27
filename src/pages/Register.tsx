@@ -145,13 +145,11 @@ export default function Register() {
         return;
       }
 
-      // Sem sessão (ex.: confirmação de email ativa), não é possível escrever em tabelas com RLS.
+      // Sem sessão (ex.: confirmação de email ativa), o cadastro já foi criado no Auth.
+      // Nesse caso, apenas exibe o modal e deixa o redirect acontecer ao fechar.
       if (!authData.session) {
-        setRegistrationSuccessPending(false);
-        registrationSuccessPendingRef.current = false;
-        setError("Conta criada! Verifique seu email para confirmar e faça login.");
-        navigate("/login", { replace: true });
         setLoading(false);
+        setShowSuccessModal(true);
         return;
       }
 
