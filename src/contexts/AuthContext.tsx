@@ -144,7 +144,6 @@ function clearAuthStorage(): void {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const LOGIN_TIMEOUT_MS = 15000;
-const SESSION_LOAD_TIMEOUT_MS = 8000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, msg: string): Promise<T> {
   return Promise.race([
@@ -311,23 +310,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (initRan.current) return;
     initRan.current = true;
 
-    const timeoutId = setTimeout(() => setIsLoading(false), SESSION_LOAD_TIMEOUT_MS);
-
     try {
-      const { data: { session }, error: sessionError } = await withTimeout(
-        supabase.auth.getSession(),
-        SESSION_LOAD_TIMEOUT_MS,
-        "Timeout ao recuperar sessão."
+      type SessionResult = Awaited<ReturnType<typeof supabase.auth.getSession>>;
+      const sessionPromise: Promise<SessionResult> = supabase.auth.getSession();
+      const timeoutPromise: Promise<SessionResult> = new Promise((resolve) =>
+        setTimeout(
+          () =>
+            resolve({
+              data: { session: null },
+              error: null,
+            } as SessionResult),
+          2000
+        )
       );
 
-      clearTimeout(timeoutId);
+      const {
+        data: { session },
+        error: sessionError,
+      } = await Promise.race([sessionPromise, timeoutPromise]);
+
+      console.log("[Auth] session restored:", !!session);
 
       if (sessionError) {
         console.warn("[Auth] Erro ao obter sessão:", sessionError);
         clearAuthStorage();
         setUser(null);
         setSelectedCompanyId(null);
-        setIsLoading(false);
         return;
       }
 
@@ -357,7 +365,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (err) {
       console.error("[Auth] loadUserFromStorage error:", err);
-      clearTimeout(timeoutId);
       setUser(null);
       setSelectedCompanyId(null);
       const stored = parseStoredUser();
