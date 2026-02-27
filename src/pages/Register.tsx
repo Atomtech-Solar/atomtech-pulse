@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getRedirectPath } from "@/contexts/AuthContext";
-import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { RegistrationSuccessModal } from "@/components/RegistrationSuccessModal";
@@ -9,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Zap, User, Building2, Phone, ArrowLeft } from "lucide-react";
+import { createRegistration } from "@/services/registrationService";
 import {
   validateCnpj,
   stripCnpj,
@@ -17,9 +17,6 @@ import {
 import { formatPhoneNational, getPhoneDigits, validatePhoneBR } from "@/lib/formatPhone";
 
 type AccountType = "user" | "company";
-
-/** Role atribuído automaticamente pelo sistema ao cadastrar como usuário. Nunca exposto na UI. */
-const DEFAULT_USER_ROLE = "viewer" as const;
 
 export default function Register() {
   const [accountType, setAccountType] = useState<AccountType>("user");
@@ -102,110 +99,35 @@ export default function Register() {
     }
 
     try {
-      // Marca ANTES do signUp para evitar que onAuthStateChange redirecione antes do modal aparecer
-      setRegistrationSuccessPending(true);
-      registrationSuccessPendingRef.current = true;
-
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: trimmedEmail,
-        password,
-        options: {
-          data: {
-            name: accountType === "user" ? trimmedName : trimmedCompany,
-            company_name: accountType === "company" ? trimmedCompany : undefined,
-            phone: accountType === "user" && getPhoneDigits(phone).length >= 10 ? `+55${getPhoneDigits(phone)}` : undefined,
-          },
-        },
-      });
-
-      if (signUpError) {
-        setRegistrationSuccessPending(false);
-        registrationSuccessPendingRef.current = false;
-        if (import.meta.env.DEV) {
-          console.error("[Register] Signup error:", signUpError);
-        }
-        let message = signUpError.message;
-        if (signUpError.message === "User already registered") {
-          message = "Este email já está cadastrado. Faça login.";
-        } else if (signUpError.message.toLowerCase().includes("email rate limit") || signUpError.message.toLowerCase().includes("rate limit exceeded")) {
-          message = "Limite de tentativas excedido. Aguarde cerca de 1 hora ou desative a confirmação de email no Supabase (Auth → Providers → Email → desmarque 'Confirm email') para desenvolvimento.";
-        } else if (signUpError.message.toLowerCase().includes("database error saving new user")) {
-          message = "Erro ao criar usuário no banco. Verifique os logs do Supabase (Postgres Logs) e a trigger handle_new_user. A migration 20250227000000_fix_signup_trigger_rls.sql pode corrigir.";
-        }
-        setError(message);
-        setLoading(false);
-        return;
-      }
-
-      if (!authData.user) {
-        setRegistrationSuccessPending(false);
-        registrationSuccessPendingRef.current = false;
-        setError("Erro ao criar conta. Tente novamente.");
-        setLoading(false);
-        return;
-      }
-
-      // Sem sessão (ex.: confirmação de email ativa), o cadastro já foi criado no Auth.
-      // Nesse caso, apenas exibe o modal e deixa o redirect acontecer ao fechar.
-      if (!authData.session) {
-        setLoading(false);
-        setShowSuccessModal(true);
-        return;
-      }
-
-      const userId = authData.user.id;
       const displayName =
         accountType === "user" ? trimmedName : trimmedCompany;
+      const phoneValue =
+        accountType === "user" && getPhoneDigits(phone).length >= 10
+          ? `+55${getPhoneDigits(phone)}`
+          : null;
+      const cnpjDigits = accountType === "company" ? stripCnpj(cnpj) : null;
 
-      if (accountType === "user") {
-        const phoneValue = getPhoneDigits(phone).length >= 10 ? `+55${getPhoneDigits(phone)}` : null;
-        const { error: profileError } = await upsertProfile({
-          user_id: userId,
-          email: trimmedEmail,
-          name: displayName,
-          role: DEFAULT_USER_ROLE,
-          company_id: null,
-          phone: phoneValue,
-        });
-        if (profileError) {
-          setRegistrationSuccessPending(false);
-          registrationSuccessPendingRef.current = false;
-          setError(profileError.message);
-          setLoading(false);
-          return;
-        }
-      } else {
-        const cnpjDigits = stripCnpj(cnpj);
-        const rpc = supabase.rpc as unknown as (
-          fn: string,
-          args: Record<string, unknown>
-        ) => Promise<{ error: { message: string } | null }>;
-        const { error: rpcError } = await rpc(
-          "create_company_for_signup",
-          {
-            p_company_name: trimmedCompany,
-            p_cnpj: cnpjDigits,
-            p_user_email: trimmedEmail,
-            p_user_name: displayName,
-          }
-        );
+      const { error: registrationError } = await createRegistration({
+        name: displayName,
+        email: trimmedEmail,
+        account_type: accountType,
+        phone: phoneValue,
+        company_name: accountType === "company" ? trimmedCompany : null,
+        cnpj: cnpjDigits,
+      });
 
-        if (rpcError) {
-          setRegistrationSuccessPending(false);
-          registrationSuccessPendingRef.current = false;
-          setError(
-            rpcError.message.includes("function") ||
-            rpcError.message.includes("does not exist")
-              ? "Função de cadastro de empresa não encontrada no Supabase. Aplique a migration create_company_for_signup."
-              : rpcError.message
-          );
-          setLoading(false);
-          return;
+      if (registrationError) {
+        if (registrationError.toLowerCase().includes("duplicate")) {
+          setError("Este email já possui um cadastro pendente.");
+        } else {
+          setError(registrationError);
         }
+        setLoading(false);
+        return;
       }
 
-      // Não chama setUserFromSupabase aqui – o onAuthStateChange ignora quando registrationSuccessPendingRef é true
-      // Assim isAuthenticated permanece false, o modal aparece na tela de cadastro e o redirect só ocorre ao fechar
+      // Cadastro concluído com sucesso via insert direto na tabela registrations.
+      // O redirecionamento para login ocorre somente ao fechar o modal.
       setLoading(false);
       setShowSuccessModal(true);
     } catch (err) {
@@ -219,55 +141,13 @@ export default function Register() {
     }
   };
 
-  async function upsertProfile(params: {
-    user_id: string;
-    email: string;
-    name: string;
-    role: "viewer" | "company_admin";
-    company_id: number | null;
-    phone?: string | null;
-  }) {
-    const { data: existing } = await supabase
-      .from("profiles")
-      .select("user_id")
-      .eq("user_id", params.user_id)
-      .maybeSingle();
-
-    const hasPhone = typeof params.phone === "string" && params.phone.trim().length > 0;
-    const phoneValue = hasPhone ? (params.phone as string).trim() : undefined;
-
-    const baseData = {
-      name: params.name,
-      role: params.role,
-      company_id: params.company_id,
-    };
-    const profileData = {
-      ...baseData,
-      ...(phoneValue && { phone: phoneValue }),
-    };
-
-    if (existing) {
-      return supabase
-        .from("profiles")
-        .update(profileData)
-        .eq("user_id", params.user_id);
-    }
-
-    return supabase.from("profiles").insert({
-      ...baseData,
-      user_id: params.user_id,
-      email: params.email,
-      ...(phoneValue && { phone: phoneValue }),
-    });
-  }
-
   const handleSuccessModalClose = async () => {
     registrationSuccessPendingRef.current = false;
     setRegistrationSuccessPending(false);
     setShowSuccessModal(false);
     await logout();
   };
-
+  
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
       <Link
