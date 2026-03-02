@@ -9,47 +9,55 @@ export type RegistrationInput = {
   cnpj?: string | null;
 };
 
+const REGISTRATION_TIMEOUT_MS = 8000;
+
 export async function createRegistration(
   data: RegistrationInput,
-  timeoutMs = 10000
+  timeoutMs = REGISTRATION_TIMEOUT_MS
 ): Promise<{ error: string | null; timedOut?: boolean }> {
   console.log("[Register] inserting registration", {
     email: data.email,
     account_type: data.account_type,
   });
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const insertPayload = {
+    name: data.name,
+    email: data.email,
+    account_type: data.account_type,
+    status: "pending",
+    created_at: new Date().toISOString(),
+    phone: data.phone ?? null,
+    company_name: data.company_name ?? null,
+    cnpj: data.cnpj ?? null,
+  };
 
-  try {
-    const { error } = await supabase
-      .from("registrations")
-      .insert({
-        name: data.name,
-        email: data.email,
-        account_type: data.account_type,
-        status: "pending",
-        created_at: new Date().toISOString(),
-        phone: data.phone ?? null,
-        company_name: data.company_name ?? null,
-        cnpj: data.cnpj ?? null,
-      })
-      .abortSignal(controller.signal);
+  const insertPromise = supabase.from("registrations").insert(insertPayload);
 
-    if (error) {
-      return { error: error.message ?? "Não foi possível registrar o cadastro." };
-    }
-  } catch (err) {
-    const isTimeoutAbort =
-      err instanceof DOMException && err.name === "AbortError";
-    if (isTimeoutAbort) {
-      return { error: "TIMEOUT", timedOut: true };
-    }
-    return {
-      error: err instanceof Error ? err.message : "Não foi possível registrar o cadastro.",
-    };
-  } finally {
-    clearTimeout(timeoutId);
+  const timeoutPromise = new Promise<{ error: string; timedOut: true }>((resolve) =>
+    setTimeout(
+      () => resolve({ error: "TIMEOUT", timedOut: true }),
+      timeoutMs
+    )
+  );
+
+  const result = await Promise.race([
+    insertPromise.then(({ error }) =>
+      error
+        ? { error: error.message ?? "Não foi possível registrar o cadastro.", timedOut: false as const }
+        : { error: null as string | null, timedOut: false as const }
+    ),
+    timeoutPromise,
+  ]).catch((err) => ({
+    error: err instanceof Error ? err.message : "Não foi possível registrar o cadastro.",
+    timedOut: false as const,
+  }));
+
+  if (result.timedOut) {
+    console.warn("[Register] registration timed out after", timeoutMs, "ms");
+    return result;
+  }
+  if (result.error) {
+    return result;
   }
 
   console.log("[Register] registration success", {

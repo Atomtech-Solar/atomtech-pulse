@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getRedirectPath } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { RegistrationSuccessModal } from "@/components/RegistrationSuccessModal";
@@ -8,13 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Zap, User, Building2, Phone, ArrowLeft } from "lucide-react";
-import { createRegistration } from "@/services/registrationService";
 import {
   validateCnpj,
   stripCnpj,
   formatCnpj,
 } from "@/lib/validateCnpj";
 import { formatPhoneNational, getPhoneDigits, validatePhoneBR } from "@/lib/formatPhone";
+
+const SIGNUP_TIMEOUT_MS = 10000;
+const PENDING_COMPANY_KEY = "pending_company_signup";
 
 type AccountType = "user" | "company";
 
@@ -99,6 +102,9 @@ export default function Register() {
     }
 
     try {
+      setRegistrationSuccessPending(true);
+      registrationSuccessPendingRef.current = true;
+
       const displayName =
         accountType === "user" ? trimmedName : trimmedCompany;
       const phoneValue =
@@ -107,28 +113,101 @@ export default function Register() {
           : null;
       const cnpjDigits = accountType === "company" ? stripCnpj(cnpj) : null;
 
-      const { error: registrationError, timedOut } = await createRegistration({
-        name: displayName,
+      const signUpPromise = supabase.auth.signUp({
         email: trimmedEmail,
-        account_type: accountType,
-        phone: phoneValue,
-        company_name: accountType === "company" ? trimmedCompany : null,
-        cnpj: cnpjDigits,
+        password,
+        options: {
+          data: {
+            name: displayName,
+            company_name: accountType === "company" ? trimmedCompany : undefined,
+            phone: phoneValue ?? undefined,
+          },
+        },
       });
 
-      if (registrationError) {
-        if (timedOut || registrationError === "TIMEOUT") {
+      const timeoutPromise = new Promise<{ data: { user: null }; error: Error }>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("TIMEOUT")),
+          SIGNUP_TIMEOUT_MS
+        )
+      );
+
+      const { data: authData, error: signUpError } = await Promise.race([
+        signUpPromise,
+        timeoutPromise,
+      ]).catch((err) => {
+        if (err?.message === "TIMEOUT") {
+          return { data: { user: null }, error: new Error("TIMEOUT") };
+        }
+        throw err;
+      });
+
+      if (signUpError) {
+        setRegistrationSuccessPending(false);
+        registrationSuccessPendingRef.current = false;
+        if (signUpError.message === "TIMEOUT") {
           setError("Erro de conexão com servidor.");
-        } else if (registrationError.toLowerCase().includes("duplicate")) {
-          setError("Este email já possui um cadastro pendente.");
+        } else if (
+          signUpError.message?.toLowerCase().includes("already registered") ||
+          signUpError.message?.toLowerCase().includes("already exists")
+        ) {
+          setError("Este email já está cadastrado. Faça login.");
+        } else if (signUpError.message?.toLowerCase().includes("rate limit")) {
+          setError("Limite de tentativas excedido. Aguarde alguns minutos.");
         } else {
-          setError("Erro de conexão com servidor.");
+          setError(
+            signUpError.message ?? "Não foi possível criar a conta. Tente novamente."
+          );
         }
         return;
       }
 
-      // Cadastro concluído com sucesso via insert direto na tabela registrations.
-      // O redirecionamento para login ocorre somente ao fechar o modal.
+      if (!authData?.user) {
+        setRegistrationSuccessPending(false);
+        registrationSuccessPendingRef.current = false;
+        setError("Erro ao criar conta. Tente novamente.");
+        return;
+      }
+
+      // Usuário criado no Auth; trigger handle_new_user já insere em profiles.
+      // Para empresa: se tiver sessão, vincular company via RPC.
+      if (authData.session && accountType === "company") {
+        const { error: rpcError } = await supabase.rpc("create_company_for_signup", {
+          p_company_name: trimmedCompany,
+          p_cnpj: cnpjDigits,
+          p_user_email: trimmedEmail,
+          p_user_name: displayName,
+          p_phone: phoneValue,
+        });
+        if (rpcError) {
+          setRegistrationSuccessPending(false);
+          registrationSuccessPendingRef.current = false;
+          setError(
+            rpcError.message?.includes("does not exist")
+              ? "Função de cadastro não encontrada. Verifique as migrations do Supabase."
+              : rpcError.message ?? "Erro ao vincular empresa."
+          );
+          return;
+        }
+      }
+
+      // Sem sessão (confirmação de email ativa): para empresa, guardar dados para completar no login.
+      if (!authData.session && accountType === "company") {
+        try {
+          localStorage.setItem(
+            `${PENDING_COMPANY_KEY}_${trimmedEmail}`,
+            JSON.stringify({
+              companyName: trimmedCompany,
+              cnpj: cnpjDigits,
+              userName: displayName,
+              phone: phoneValue,
+            })
+          );
+        } catch {
+          /* ignore localStorage */
+        }
+      }
+
       setShowSuccessModal(true);
     } catch (err) {
       setRegistrationSuccessPending(false);

@@ -16,6 +16,7 @@ import {
 
 const STORAGE_KEY = "topup_user";
 const COMPANY_KEY = "topup_company";
+const PENDING_COMPANY_KEY = "pending_company_signup";
 
 export type Role = "super_admin" | "company_admin" | "manager" | "viewer";
 
@@ -207,8 +208,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadProfileAndApply = useCallback(
     async (userId: string): Promise<boolean> => {
       try {
-        const authUser = await fetchProfileFromSession(userId);
+        let authUser = await fetchProfileFromSession(userId);
         if (authUser) {
+          // company_admin sem company_id: completar cadastro pendente (confirmação de email)
+          if (
+            authUser.role === "company_admin" &&
+            authUser.company_id == null &&
+            typeof window !== "undefined"
+          ) {
+            try {
+              const key = `${PENDING_COMPANY_KEY}_${authUser.email}`;
+              const raw = localStorage.getItem(key);
+              if (raw) {
+                const pending = JSON.parse(raw) as {
+                  companyName?: string;
+                  cnpj?: string;
+                  userName?: string;
+                  phone?: string | null;
+                };
+                const { error: rpcError } = await supabase.rpc(
+                  "create_company_for_signup",
+                  {
+                    p_company_name: pending.companyName ?? "",
+                    p_cnpj: pending.cnpj ?? "",
+                    p_user_email: authUser.email,
+                    p_user_name: pending.userName ?? authUser.name,
+                    p_phone: pending.phone ?? null,
+                  }
+                );
+                if (!rpcError) {
+                  localStorage.removeItem(key);
+                  authUser = await fetchProfileFromSession(userId);
+                  if (authUser) {
+                    applyAuthUser(authUser);
+                    return true;
+                  }
+                }
+              }
+            } catch {
+              /* ignore */
+            }
+          }
           applyAuthUser(authUser);
           return true;
         }
@@ -462,15 +502,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { error: msg };
         }
 
-        loginJustCompletedRef.current = true;
-
-        const authUser: AuthUser = {
+        let authUser: AuthUser = {
           id: profile.user_id,
           email: profile.email,
           role: profile.role as Role,
           company_id: profile.company_id,
           name: profile.name ?? profile.email,
         };
+
+        // company_admin sem company_id: completar cadastro pendente
+        if (
+          authUser.role === "company_admin" &&
+          authUser.company_id == null &&
+          typeof window !== "undefined"
+        ) {
+          try {
+            const key = `${PENDING_COMPANY_KEY}_${authUser.email}`;
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const pending = JSON.parse(raw) as {
+                companyName?: string;
+                cnpj?: string;
+                userName?: string;
+                phone?: string | null;
+              };
+              const { error: rpcError } = await supabase.rpc(
+                "create_company_for_signup",
+                {
+                  p_company_name: pending.companyName ?? "",
+                  p_cnpj: pending.cnpj ?? "",
+                  p_user_email: authUser.email,
+                  p_user_name: pending.userName ?? authUser.name,
+                  p_phone: pending.phone ?? null,
+                }
+              );
+              if (!rpcError) {
+                localStorage.removeItem(key);
+                const { data: updatedProfile } = await supabase
+                  .from("profiles")
+                  .select("user_id, email, name, role, company_id")
+                  .eq("user_id", data.session.user.id)
+                  .single();
+                if (updatedProfile) {
+                  authUser = {
+                    id: updatedProfile.user_id,
+                    email: updatedProfile.email,
+                    role: updatedProfile.role as Role,
+                    company_id: updatedProfile.company_id,
+                    name: updatedProfile.name ?? updatedProfile.email,
+                  };
+                }
+              }
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+
+        loginJustCompletedRef.current = true;
         applyAuthUser(authUser);
         return { redirectPath: getRedirectPath(authUser) };
       } catch (err) {
