@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { getRedirectPath } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
+import { registerUser } from "@/services/auth";
 import { Button } from "@/components/ui/button";
 import { RegistrationSuccessModal } from "@/components/RegistrationSuccessModal";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,6 @@ import {
 } from "@/lib/validateCnpj";
 import { formatPhoneNational, getPhoneDigits, validatePhoneBR } from "@/lib/formatPhone";
 
-const SIGNUP_TIMEOUT_MS = 10000;
 const PENDING_COMPANY_KEY = "pending_company_signup";
 
 type AccountType = "user" | "company";
@@ -113,65 +113,26 @@ export default function Register() {
           : null;
       const cnpjDigits = accountType === "company" ? stripCnpj(cnpj) : null;
 
-      const signUpPromise = supabase.auth.signUp({
+      await registerUser({
         email: trimmedEmail,
         password,
-        options: {
-          data: {
-            name: displayName,
-            company_name: accountType === "company" ? trimmedCompany : undefined,
-            phone: phoneValue ?? undefined,
-          },
-        },
+        name: displayName,
+        accountType,
+        phone: phoneValue,
+        companyName: accountType === "company" ? trimmedCompany : null,
+        cnpj: cnpjDigits,
       });
 
-      const timeoutPromise = new Promise<{ data: { user: null }; error: Error }>((_, reject) =>
-        setTimeout(
-          () => reject(new Error("TIMEOUT")),
-          SIGNUP_TIMEOUT_MS
-        )
-      );
-
-      const { data: authData, error: signUpError } = await Promise.race([
-        signUpPromise,
-        timeoutPromise,
-      ]).catch((err) => {
-        if (err?.message === "TIMEOUT") {
-          return { data: { user: null }, error: new Error("TIMEOUT") };
-        }
-        throw err;
+      // Auto-login após cadastro via Edge Function (quando confirmação de email não é obrigatória)
+      const { data: signInData } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
       });
 
-      if (signUpError) {
-        setRegistrationSuccessPending(false);
-        registrationSuccessPendingRef.current = false;
-        if (signUpError.message === "TIMEOUT") {
-          setError("Erro de conexão com servidor.");
-        } else if (
-          signUpError.message?.toLowerCase().includes("already registered") ||
-          signUpError.message?.toLowerCase().includes("already exists")
-        ) {
-          setError("Este email já está cadastrado. Faça login.");
-        } else if (signUpError.message?.toLowerCase().includes("rate limit")) {
-          setError("Limite de tentativas excedido. Aguarde alguns minutos.");
-        } else {
-          setError(
-            signUpError.message ?? "Não foi possível criar a conta. Tente novamente."
-          );
-        }
-        return;
-      }
+      const hasSession = !!signInData?.session;
 
-      if (!authData?.user) {
-        setRegistrationSuccessPending(false);
-        registrationSuccessPendingRef.current = false;
-        setError("Erro ao criar conta. Tente novamente.");
-        return;
-      }
-
-      // Usuário criado no Auth; trigger handle_new_user já insere em profiles.
-      // Para empresa: se tiver sessão, vincular company via RPC.
-      if (authData.session && accountType === "company") {
+      // Usuário criado via Edge Function; para empresa: se tiver sessão, vincular company via RPC.
+      if (hasSession && accountType === "company") {
         const { error: rpcError } = await supabase.rpc("create_company_for_signup", {
           p_company_name: trimmedCompany,
           p_cnpj: cnpjDigits,
@@ -192,7 +153,7 @@ export default function Register() {
       }
 
       // Sem sessão (confirmação de email ativa): para empresa, guardar dados para completar no login.
-      if (!authData.session && accountType === "company") {
+      if (!hasSession && accountType === "company") {
         try {
           localStorage.setItem(
             `${PENDING_COMPANY_KEY}_${trimmedEmail}`,
