@@ -5,8 +5,12 @@ import {
   updateStationLastSeen,
   updateStationStatus,
   incrementStationSessions,
-  addStationKwh,
 } from "../services/stationService";
+import {
+  createTransaction,
+  stopTransaction,
+  updateTransactionEnergy,
+} from "../services/transactionService";
 
 interface OcppMessage {
   messageTypeId: number;
@@ -22,9 +26,6 @@ let realtimeEmitter: RealtimeEmitter = () => {};
 export function setRealtimeEmitter(emitter: RealtimeEmitter) {
   realtimeEmitter = emitter;
 }
-
-/** Mapa transactionId -> meterStart (Wh) para calcular kWh no StopTransaction */
-const transactionMeterStart = new Map<number, number>();
 
 function parseOcppMessage(data: Buffer | string): OcppMessage | null {
   try {
@@ -72,7 +73,7 @@ export function handleOcppMessage(chargePointId: string, ws: WebSocket, data: Bu
       handleStopTransaction(chargePointId, ws, uniqueId, payload);
       break;
     case "MeterValues":
-      handleMeterValues(chargePointId, ws, uniqueId);
+      handleMeterValues(chargePointId, ws, uniqueId, payload);
       break;
     default:
       sendCallError(ws, uniqueId, "NotSupported", `Action ${action} não suportada`);
@@ -161,26 +162,36 @@ async function handleStartTransaction(
   uniqueId: string,
   payload: unknown
 ) {
-  const p = payload as { connectorId?: number; idTag?: string; meterStart?: number } | undefined;
-  const meterStart = p?.meterStart ?? 0;
-  const transactionId = Math.floor(Math.random() * 1_000_000);
+  console.log("StartTransaction recebido");
 
-  transactionMeterStart.set(transactionId, meterStart);
+  const p = payload as { connectorId?: number; idTag?: string; meterStart?: number } | undefined;
+  const connectorId = p?.connectorId ?? 1;
+  const meterStart = p?.meterStart ?? 0;
+  const ocppTransactionId = Math.floor(Math.random() * 1_000_000) + 1;
 
   const station = await findStationByChargePointId(chargePointId);
   if (station) {
-    await incrementStationSessions(chargePointId);
+    const tx = await createTransaction(
+      chargePointId,
+      Number(station.id),
+      connectorId,
+      meterStart,
+      ocppTransactionId
+    );
+    if (tx) {
+      await incrementStationSessions(chargePointId);
+    }
   } else {
     console.warn("Estação não cadastrada:", chargePointId);
   }
 
   const response = {
-    transactionId,
+    transactionId: ocppTransactionId,
     idTagInfo: { status: "Accepted" as const },
   };
 
   sendCallResult(ws, uniqueId, response);
-  realtimeEmitter("start_transaction", { chargePointId, transactionId });
+  realtimeEmitter("start_transaction", { chargePointId, transactionId: ocppTransactionId });
 }
 
 async function handleStopTransaction(
@@ -189,24 +200,14 @@ async function handleStopTransaction(
   uniqueId: string,
   payload: unknown
 ) {
+  console.log("StopTransaction recebido");
+
   const p = payload as { transactionId?: number; meterStop?: number } | undefined;
-  const transactionId = p?.transactionId;
+  const ocppTransactionId = p?.transactionId;
   const meterStop = p?.meterStop ?? 0;
 
-  let energiaKwh = 0;
-  if (transactionId != null) {
-    const meterStart = transactionMeterStart.get(transactionId) ?? 0;
-    energiaKwh = Math.max(0, (meterStop - meterStart) / 1000);
-    transactionMeterStart.delete(transactionId);
-  }
-
-  const station = await findStationByChargePointId(chargePointId);
-  if (station) {
-    if (energiaKwh > 0) {
-      await addStationKwh(chargePointId, energiaKwh);
-    }
-  } else {
-    console.warn("Estação não cadastrada:", chargePointId);
+  if (ocppTransactionId != null) {
+    await stopTransaction(ocppTransactionId, meterStop);
   }
 
   const response = {
@@ -217,10 +218,36 @@ async function handleStopTransaction(
   realtimeEmitter("stop_transaction", { chargePointId });
 }
 
-async function handleMeterValues(chargePointId: string, ws: WebSocket, uniqueId: string) {
+async function handleMeterValues(
+  chargePointId: string,
+  ws: WebSocket,
+  uniqueId: string,
+  payload: unknown
+) {
+  console.log("MeterValues recebido");
+
   const station = await findStationByChargePointId(chargePointId);
   if (station) {
     await updateStationLastSeen(chargePointId);
+  }
+
+  const p = payload as {
+    connectorId?: number;
+    transactionId?: number;
+    meterValue?: Array<{
+      sampledValue?: Array<{ value: string; measurand?: string }>;
+    }>;
+  } | undefined;
+
+  const ocppTransactionId = p?.transactionId;
+  const meterValue = p?.meterValue?.[0];
+  const sampledValue = meterValue?.sampledValue?.find(
+    (s) => s.measurand === "Energy.Active.Import.Register"
+  );
+
+  if (ocppTransactionId != null && sampledValue) {
+    const value = parseFloat(sampledValue.value) || 0;
+    await updateTransactionEnergy(ocppTransactionId, value);
   }
 
   sendCallResult(ws, uniqueId, {});
