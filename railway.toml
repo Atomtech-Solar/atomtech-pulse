@@ -1,8 +1,8 @@
 # Railway config: quando Root Directory está em branco (deploy da raiz do repo)
-# Build e start do BACKEND - garante que Vite (frontend) não seja executado
+# Usa Dockerfile com pnpm via corepack - evita "pnpm: command not found"
 [build]
-builder = "nixpacks"
-buildCommand = "cd backend && pnpm install && pnpm run build"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "cd backend && node dist/server.js"
+# CMD do Dockerfile é usado automaticamente

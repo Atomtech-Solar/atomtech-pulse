@@ -1,8 +1,8 @@
 # Railway config: quando Root Directory = "backend"
-# Nixpacks usa package.json do backend automaticamente
+# Usa Dockerfile (com pnpm via corepack) em vez de Nixpacks
 [build]
-builder = "nixpacks"
-buildCommand = "pnpm install && pnpm run build"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "node dist/server.js"
+startCommand = "pnpm start"
