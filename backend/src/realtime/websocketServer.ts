@@ -1,14 +1,15 @@
+import type { Server as HttpServer } from "http";
 import { WebSocketServer } from "ws";
 import type { WebSocket } from "ws";
-
-const REALTIME_PORT = 3002;
 
 const clients = new Set<WebSocket>();
 
 let wss: WebSocketServer | null = null;
 
-export function startRealtimeServer() {
-  wss = new WebSocketServer({ port: REALTIME_PORT });
+export const REALTIME_PATH = "/realtime";
+
+export function startRealtimeServer(server: HttpServer): WebSocketServer {
+  wss = new WebSocketServer({ noServer: true });
 
   wss.on("connection", (ws) => {
     clients.add(ws);
@@ -16,7 +17,11 @@ export function startRealtimeServer() {
     ws.on("error", () => clients.delete(ws));
   });
 
-  console.log(`Realtime WebSocket rodando na porta ${REALTIME_PORT}`);
+  console.log(`Realtime WebSocket disponível em ws://...${REALTIME_PATH}`);
+  return wss;
+}
+
+export function getRealtimeWss(): WebSocketServer | null {
   return wss;
 }
 

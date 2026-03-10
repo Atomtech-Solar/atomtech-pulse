@@ -1,7 +1,8 @@
 const WebSocket = require("ws");
 
 const CHARGER_ID = "CP001";
-const WS_URL = `ws://localhost:3001/ocpp/${CHARGER_ID}`;
+const PORT = process.env.PORT || 3000;
+const WS_URL = `ws://localhost:${PORT}/ocpp/${CHARGER_ID}`;
 
 /** OCPP 1.6 Call: [2, uniqueId, action, payload] */
 function ocppCall(uniqueId, action, payload) {

@@ -28,8 +28,8 @@ backend/
 | Serviço   | Porta |
 |----------|-------|
 | API HTTP | 3000  |
-| OCPP WS  | 3001  |
-| Realtime | 3002  |
+| OCPP WS  | `PORT` (mesmo servidor, path `/ocpp/:id`) |
+| Realtime | `PORT` (mesmo servidor, path `/realtime`) |
 
 ## Como rodar
 
@@ -46,7 +46,7 @@ npm run dev
 ## Fluxo
 
 1. **Cadastre a estação no frontend** (Estações → Adicionar Estação) com o Charge Point ID (ex: CP001)
-2. **Conecte o carregador** em `ws://localhost:3001/ocpp/CP001`
+2. **Conecte o carregador** em `ws://localhost:3000/ocpp/CP001` (ou `ws://host:PORT/ocpp/CP001`)
 3. O servidor verifica se a estação existe. Se **não existir**, a conexão é recusada
 4. Se existir: `status` → online, `last_seen` → now(), e os eventos OCPP atualizam o banco
 
@@ -54,8 +54,7 @@ npm run dev
 
 ```
 API rodando na porta 3000
-Realtime WebSocket rodando na porta 3002
-OCPP Server rodando na porta 3001
+Realtime e OCPP rodando no mesmo servidor (porta PORT)
 ```
 
 Quando um carregador cadastrado conectar:

@@ -1,19 +1,23 @@
+import type { Server as HttpServer } from "http";
 import { WebSocketServer } from "ws";
 import { handleOcppMessage, setRealtimeEmitter } from "./ocppHandlers";
 
-const OCPP_PORT = Number(process.env.OCPP_PORT) || 3001;
-
 let wss: WebSocketServer | null = null;
 
-export function startOcppServer(realtimeEmitter?: (event: string, data: unknown) => void) {
+export const OCPP_PATH_PREFIX = "/ocpp/";
+
+export function startOcppServer(
+  server: HttpServer,
+  realtimeEmitter?: (event: string, data: unknown) => void
+): WebSocketServer {
   if (realtimeEmitter) {
     setRealtimeEmitter(realtimeEmitter);
   }
 
-  wss = new WebSocketServer({ port: OCPP_PORT });
+  wss = new WebSocketServer({ noServer: true });
 
   wss.on("connection", (ws, req) => {
-    const pathname = (req.url || "/").split("?")[0];
+    const pathname = (req.url ?? "/").split("?")[0];
     const match = pathname.match(/^\/ocpp\/(.+)$/);
     const chargePointId = match ? decodeURIComponent(match[1]) : null;
 
@@ -38,6 +42,10 @@ export function startOcppServer(realtimeEmitter?: (event: string, data: unknown)
     });
   });
 
-  console.log(`OCPP Server rodando na porta ${OCPP_PORT}`);
+  console.log(`OCPP Server disponível em ws://.../ocpp/{chargePointId}`);
+  return wss;
+}
+
+export function getOcppWss(): WebSocketServer | null {
   return wss;
 }
