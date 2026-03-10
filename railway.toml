@@ -1,0 +1,8 @@
+# Railway config: quando Root Directory está em branco (deploy da raiz do repo)
+# Build e start do BACKEND - garante que Vite (frontend) não seja executado
+[build]
+builder = "nixpacks"
+buildCommand = "cd backend && pnpm install && pnpm run build"
+
+[deploy]
+startCommand = "cd backend && node dist/server.js"

@@ -8,6 +8,8 @@
     "db:push": "npx supabase db push",
     "db:fix-rls": "node scripts/run-fix-companies-rls.mjs",
     "build": "vite build",
+    "build:backend": "cd backend && pnpm run build",
+    "start": "cd backend && pnpm run build && node dist/server.js",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
