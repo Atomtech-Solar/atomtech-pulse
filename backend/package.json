@@ -1,8 +1,11 @@
 {
-  "name": "atomtech-pulse-backend",
+  "name": "atomtech-backend",
   "version": "1.0.0",
   "description": "Backend API, OCPP e WebSocket Realtime",
   "main": "dist/server.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "ts-node -r dotenv/config src/server.ts",
     "build": "tsc",

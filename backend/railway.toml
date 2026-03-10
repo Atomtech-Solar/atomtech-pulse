@@ -1,0 +1,8 @@
+# Railway config: quando Root Directory = "backend"
+# Nixpacks usa package.json do backend automaticamente
+[build]
+builder = "nixpacks"
+buildCommand = "pnpm install && pnpm run build"
+
+[deploy]
+startCommand = "node dist/server.js"
