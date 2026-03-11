@@ -163,10 +163,10 @@ export default function StationsPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-display font-bold">Estações</h1>
+          <h1 className="text-xl sm:text-2xl font-display font-bold">Estações</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Gerenciar carregadores veiculares (OCPP)
           </p>
@@ -174,7 +174,7 @@ export default function StationsPage() {
         {user?.role !== "viewer" && (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gradient-primary text-primary-foreground glow-primary">
+              <Button className="gradient-primary text-primary-foreground glow-primary w-full sm:w-auto shrink-0">
                 <Plus className="w-4 h-4 mr-2" />
                 Adicionar Estação
               </Button>
@@ -238,7 +238,7 @@ export default function StationsPage() {
                     <p className="text-sm text-destructive">{chargePointIdError}</p>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="station-city">Cidade</Label>
                     <Input
@@ -282,8 +282,8 @@ export default function StationsPage() {
         )}
       </div>
 
-      <Card className="border-border bg-card">
-        <CardContent className="p-0">
+      <Card className="border-border bg-card overflow-hidden">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">

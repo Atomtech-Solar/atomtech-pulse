@@ -102,23 +102,27 @@ export default function DashboardLayout() {
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Header */}
-        <header className="h-16 border-b border-border flex items-center gap-4 px-4 lg:px-6 bg-card/50 backdrop-blur-sm shrink-0">
-          <button className="lg:hidden text-muted-foreground" onClick={() => setSidebarOpen(true)}>
+        <header className="h-14 sm:h-16 border-b border-border flex items-center gap-2 sm:gap-4 px-3 sm:px-4 lg:px-6 bg-card/50 backdrop-blur-sm shrink-0">
+          <button
+            className="lg:hidden p-2 -ml-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menu"
+          >
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Buscar..." className="pl-9 bg-secondary border-0 h-9" />
+          <div className="relative flex-1 min-w-0 max-w-md hidden sm:block">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground shrink-0" />
+            <Input placeholder="Buscar..." className="pl-9 bg-secondary border-0 h-9 w-full" />
           </div>
 
-          <div className="flex items-center gap-3 ml-auto">
+          <div className="flex items-center gap-1 sm:gap-3 ml-auto shrink-0">
             {user?.role === 'super_admin' && (
               <Select value={selectedCompanyId?.toString() ?? 'all'} onValueChange={v => setSelectedCompanyId(v === 'all' ? null : Number(v))}>
-                <SelectTrigger className="w-48 h-9 bg-secondary border-0 text-sm">
-                  <Building2 className="w-3.5 h-3.5 mr-1.5" />
+                <SelectTrigger className="w-[140px] sm:w-44 md:w-48 h-9 bg-secondary border-0 text-xs sm:text-sm">
+                  <Building2 className="w-3.5 h-3.5 mr-1.5 shrink-0" />
                   <SelectValue placeholder="Todas as empresas" />
                 </SelectTrigger>
                 <SelectContent>
@@ -128,18 +132,18 @@ export default function DashboardLayout() {
               </Select>
             )}
 
-            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={toggleTheme}>
+            <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={toggleTheme} aria-label={isDark ? "Modo claro" : "Modo escuro"}>
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
 
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={handleLogout}>
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive shrink-0" onClick={handleLogout} aria-label="Sair">
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 p-3 sm:p-4 lg:p-6">
           <Outlet />
         </main>
       </div>

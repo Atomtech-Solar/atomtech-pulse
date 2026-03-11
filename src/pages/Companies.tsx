@@ -97,16 +97,16 @@ export default function Companies() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-display font-bold">Empresas</h1>
+          <h1 className="text-xl sm:text-2xl font-display font-bold">Empresas</h1>
           <p className="text-muted-foreground text-sm mt-1">Gestão multi-tenant</p>
         </div>
         {user?.role === "super_admin" && (
           <>
             <Button
-              className="gradient-primary text-primary-foreground glow-primary"
+              className="gradient-primary text-primary-foreground glow-primary w-full sm:w-auto shrink-0"
               onClick={() => setOpen(true)}
             >
               <Plus className="w-4 h-4 mr-2" /> Nova Empresa
@@ -136,7 +136,7 @@ export default function Companies() {
                       placeholder="00.000.000/0001-00"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="company-city">Cidade</Label>
                       <Input
@@ -221,8 +221,8 @@ export default function Companies() {
           </>
         )}
       </div>
-      <Card className="border-border bg-card">
-        <CardContent className="p-0">
+      <Card className="border-border bg-card overflow-hidden">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">

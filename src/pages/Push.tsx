@@ -48,12 +48,12 @@ export default function Push() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-display font-bold">Push Notifications</h1>
+        <h1 className="text-xl sm:text-2xl font-display font-bold">Push Notifications</h1>
         <p className="text-muted-foreground text-sm mt-1">Envie notificações para os usuários</p>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card className="border-border bg-card">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">

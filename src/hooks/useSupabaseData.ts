@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   isSupabaseAuthError,
   dispatchSessionInvalid,
+  logPermissionError,
 } from "@/lib/supabaseAuthUtils";
 import {
   companies,
@@ -18,8 +19,9 @@ import {
 
 const QUERY_TIMEOUT_MS = 12000;
 
-function handleQueryError(error: unknown): never {
+function handleQueryError(context: string, error: unknown): never {
   if (isSupabaseAuthError(error)) {
+    logPermissionError(context, error);
     dispatchSessionInvalid();
   }
   throw error;
@@ -41,14 +43,16 @@ function isMockAuth(user: { id?: number | string } | null): boolean {
 
 export function useCompanies() {
   const { user } = useAuth();
+  const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["companies", user?.id],
+    enabled: !useSupabase || !!user, // Só executa se tiver sessão válida (Supabase)
     retry: 1,
     queryFn: async () => {
       if (isMockAuth(user)) return companies;
       const promise = supabase.from("companies").select("*").order("name");
       const { data, error } = await withTimeout(promise, QUERY_TIMEOUT_MS);
-      if (error) handleQueryError(error);
+      if (error) handleQueryError("useCompanies (companies)", error);
       return data as Tables<"companies">[];
     },
   });
@@ -57,8 +61,10 @@ export function useCompanies() {
 export function useStations() {
   const { user, selectedCompanyId } = useAuth();
   const role = user?.role ?? "viewer";
+  const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["stations", role, selectedCompanyId],
+    enabled: !useSupabase || !!user,
     queryFn: async () => {
       if (isMockAuth(user)) {
         return filterByCompany(stations, selectedCompanyId, role);
@@ -68,7 +74,7 @@ export function useStations() {
         query = query.eq("company_id", selectedCompanyId);
       }
       const { data, error } = await query;
-      if (error) handleQueryError(error);
+      if (error) handleQueryError("useStations (stations)", error);
       return data as (Tables<"stations"> & { station_connectors: Tables<"station_connectors">[] })[];
     },
   });
@@ -77,8 +83,10 @@ export function useStations() {
 export function useSessions() {
   const { user, selectedCompanyId } = useAuth();
   const role = user?.role ?? "viewer";
+  const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["sessions", role, selectedCompanyId],
+    enabled: !useSupabase || !!user,
     queryFn: async () => {
       if (isMockAuth(user)) {
         return filterByCompany(sessions, selectedCompanyId, role);
@@ -88,7 +96,7 @@ export function useSessions() {
         query = query.eq("company_id", selectedCompanyId);
       }
       const { data, error } = await query;
-      if (error) handleQueryError(error);
+      if (error) handleQueryError("useSessions (v_sessions_list)", error);
       return data as Tables<"v_sessions_list">[];
     },
   });
@@ -97,8 +105,10 @@ export function useSessions() {
 export function useEvUsers() {
   const { user, selectedCompanyId } = useAuth();
   const role = user?.role ?? "viewer";
+  const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["ev_users", role, selectedCompanyId],
+    enabled: !useSupabase || !!user,
     queryFn: async () => {
       if (isMockAuth(user)) {
         return filterByCompany(evUsers, selectedCompanyId, role);
@@ -108,7 +118,7 @@ export function useEvUsers() {
         query = query.eq("company_id", selectedCompanyId);
       }
       const { data, error } = await query;
-      if (error) handleQueryError(error);
+      if (error) handleQueryError("useEvUsers (ev_users)", error);
       return data as Tables<"ev_users">[];
     },
   });
@@ -117,8 +127,10 @@ export function useEvUsers() {
 export function useVouchers() {
   const { user, selectedCompanyId } = useAuth();
   const role = user?.role ?? "viewer";
+  const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["vouchers", role, selectedCompanyId],
+    enabled: !useSupabase || !!user,
     queryFn: async () => {
       if (isMockAuth(user)) {
         return filterByCompany(vouchers, selectedCompanyId, role);
@@ -128,7 +140,7 @@ export function useVouchers() {
         query = query.eq("company_id", selectedCompanyId);
       }
       const { data, error } = await query;
-      if (error) handleQueryError(error);
+      if (error) handleQueryError("useVouchers (vouchers)", error);
       return data as Tables<"vouchers">[];
     },
   });
@@ -137,8 +149,10 @@ export function useVouchers() {
 export function usePushNotifications() {
   const { user, selectedCompanyId } = useAuth();
   const role = user?.role ?? "viewer";
+  const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["push_notifications", role, selectedCompanyId],
+    enabled: !useSupabase || !!user,
     queryFn: async () => {
       if (isMockAuth(user)) {
         return filterByCompany(pushNotifications, selectedCompanyId, role);
@@ -148,17 +162,18 @@ export function usePushNotifications() {
         query = query.eq("company_id", selectedCompanyId);
       }
       const { data, error } = await query;
-      if (error) handleQueryError(error);
+      if (error) handleQueryError("usePushNotifications (push_notifications)", error);
       return data as Tables<"push_notifications">[];
     },
   });
 }
 
 export function useCompanySettings() {
-  const { selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId } = useAuth();
+  const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["company_settings", selectedCompanyId],
-    enabled: !!selectedCompanyId,
+    enabled: !!selectedCompanyId && (!useSupabase || !!user),
     queryFn: async () => {
       if (!selectedCompanyId) return null;
       const { data, error } = await supabase
@@ -166,17 +181,18 @@ export function useCompanySettings() {
         .select("*")
         .eq("company_id", selectedCompanyId)
         .single();
-      if (error) handleQueryError(error);
+      if (error) handleQueryError("useCompanySettings (company_settings)", error);
       return data as Tables<"company_settings">;
     },
   });
 }
 
 export function useTariffs() {
-  const { selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId } = useAuth();
+  const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["tariffs", selectedCompanyId],
-    enabled: !!selectedCompanyId,
+    enabled: !!selectedCompanyId && (!useSupabase || !!user),
     queryFn: async () => {
       if (!selectedCompanyId) return [];
       const { data, error } = await supabase
@@ -184,7 +200,7 @@ export function useTariffs() {
         .select("*")
         .eq("company_id", selectedCompanyId)
         .order("weekday");
-      if (error) handleQueryError(error);
+      if (error) handleQueryError("useTariffs (tariffs)", error);
       return data as Tables<"tariffs">[];
     },
   });
@@ -194,9 +210,10 @@ export function useTariffs() {
 export function useProfilesForAdmin() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "super_admin";
+  const useSupabase = !isMockAuth(user);
   return useQuery({
-    queryKey: ["profiles-admin"],
-    enabled: !!isSuperAdmin,
+    queryKey: ["profiles-admin", user?.id],
+    enabled: !!isSuperAdmin && (!useSupabase || !!user),
     retry: 1,
     queryFn: async () => {
       const promise = supabase
@@ -204,7 +221,7 @@ export function useProfilesForAdmin() {
         .select("*, company:companies(name)")
         .order("created_at", { ascending: false });
       const { data, error } = await withTimeout(promise, QUERY_TIMEOUT_MS);
-      if (error) handleQueryError(error);
+      if (error) handleQueryError("useProfilesForAdmin (profiles+companies)", error);
       return data as (Tables<"profiles"> & { company: { name: string } | null })[];
     },
   });
@@ -213,8 +230,10 @@ export function useProfilesForAdmin() {
 export function useStationRevenue() {
   const { user, selectedCompanyId } = useAuth();
   const role = user?.role ?? "viewer";
+  const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["station_revenue", role, selectedCompanyId],
+    enabled: !useSupabase || !!user,
     queryFn: async () => {
       if (isMockAuth(user)) {
         const filtered = filterByCompany(sessions, selectedCompanyId, role);
@@ -251,7 +270,7 @@ export function useStationRevenue() {
         query = query.eq("company_id", selectedCompanyId);
       }
       const { data, error } = await query;
-      if (error) handleQueryError(error);
+      if (error) handleQueryError("useStationRevenue (v_station_revenue)", error);
       return data as Tables<"v_station_revenue">[];
     },
   });

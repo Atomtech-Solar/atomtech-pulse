@@ -11,6 +11,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 import {
   isSupabaseAuthError,
+  logPermissionError,
   onSessionInvalid,
 } from "@/lib/supabaseAuthUtils";
 
@@ -164,6 +165,7 @@ async function fetchProfileFromSession(userId: string): Promise<AuthUser | null>
 
   if (error) {
     if (isSupabaseAuthError(error)) {
+      logPermissionError("fetchProfileFromSession (profiles)", error);
       throw error;
     }
     return null;
@@ -298,6 +300,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubSessionInvalid;
   }, [forceLogout]);
 
+  // Refresh de sessão: (1) ao retornar à aba, (2) a cada 9min quando ativo (evita auth.uid() NULL)
+  useEffect(() => {
+    const doRefresh = () => {
+      if (!user) return;
+      supabase.auth
+        .refreshSession()
+        .then(({ error }) => {
+          if (error) console.warn("[Auth] Falha ao refrescar sessão:", error.message);
+        })
+        .catch(() => {});
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") doRefresh();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    const interval = setInterval(doRefresh, 9 * 60 * 1000); // 9 minutos
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      clearInterval(interval);
+    };
+  }, [user]);
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -324,22 +350,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
 
-          if (session?.user) {
-            try {
-              const ok = await loadProfileAndApply(session.user.id);
-              if (!ok && !registrationSuccessPendingRef.current) {
-                await forceLogout();
-              }
-            } catch {
-              if (!registrationSuccessPendingRef.current) {
-                await forceLogout();
-              }
-            }
-          } else {
-            clearAuthStorage();
-            setUser(null);
-            setSelectedCompanyId(null);
+      if (session?.user) {
+        try {
+          const ok = await loadProfileAndApply(session.user.id);
+          if (!ok && !registrationSuccessPendingRef.current) {
+            await forceLogout();
           }
+        } catch (err) {
+          if (!registrationSuccessPendingRef.current) {
+            logPermissionError("onAuthStateChange loadProfile", err);
+            await forceLogout();
+          }
+        }
+      } else {
+        // Sessão nula (expirada/logout) → limpar tudo. Não restaurar de localStorage.
+        clearAuthStorage();
+        setUser(null);
+        setSelectedCompanyId(null);
+      }
         }
       }
     );
@@ -385,36 +413,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (!ok) {
             await forceLogout();
           }
-        } catch {
+        } catch (err) {
+          logPermissionError("loadUserFromStorage loadProfile", err);
           await forceLogout();
         }
         if (import.meta.env.DEV) {
           console.log("[Auth] Sessão restaurada:", session.user.email);
         }
       } else {
+        // Sem sessão válida → não restaurar de localStorage (evita queries com auth.uid() NULL)
+        clearAuthStorage();
         setUser(null);
         setSelectedCompanyId(null);
-        const stored = parseStoredUser();
-        if (stored) {
-          setUser(stored);
-          const company = parseStoredCompany();
-          if (company !== null) setSelectedCompanyId(company);
-        } else {
-          clearAuthStorage();
-        }
       }
     } catch (err) {
       console.error("[Auth] loadUserFromStorage error:", err);
+      logPermissionError("loadUserFromStorage", err);
+      clearAuthStorage();
       setUser(null);
       setSelectedCompanyId(null);
-      const stored = parseStoredUser();
-      if (stored) {
-        setUser(stored);
-        const company = parseStoredCompany();
-        if (company !== null) setSelectedCompanyId(company);
-      } else {
-        clearAuthStorage();
-      }
     } finally {
       setIsLoading(false);
     }

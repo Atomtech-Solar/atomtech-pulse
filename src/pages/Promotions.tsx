@@ -55,13 +55,13 @@ export default function Promotions() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-display font-bold">Promoções & Tarifas</h1>
+        <h1 className="text-xl sm:text-2xl font-display font-bold">Promoções & Tarifas</h1>
         <p className="text-muted-foreground text-sm mt-1">Configure preços por dia da semana</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
         {days.map(day => (
           <Card key={day} className="border-border bg-card">
             <CardHeader className="pb-2">
