@@ -42,11 +42,11 @@ function isMockAuth(user: { id?: number | string } | null): boolean {
 }
 
 export function useCompanies() {
-  const { user } = useAuth();
+  const { user, isSessionReady } = useAuth();
   const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["companies", user?.id],
-    enabled: !useSupabase || !!user, // Só executa se tiver sessão válida (Supabase)
+    enabled: isSessionReady && (!useSupabase || !!user),
     retry: 1,
     queryFn: async () => {
       if (isMockAuth(user)) return companies;
@@ -59,12 +59,12 @@ export function useCompanies() {
 }
 
 export function useStations() {
-  const { user, selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
   const role = user?.role ?? "viewer";
   const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["stations", role, selectedCompanyId],
-    enabled: !useSupabase || !!user,
+    enabled: isSessionReady && (!useSupabase || !!user),
     queryFn: async () => {
       if (isMockAuth(user)) {
         return filterByCompany(stations, selectedCompanyId, role);
@@ -81,12 +81,12 @@ export function useStations() {
 }
 
 export function useSessions() {
-  const { user, selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
   const role = user?.role ?? "viewer";
   const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["sessions", role, selectedCompanyId],
-    enabled: !useSupabase || !!user,
+    enabled: isSessionReady && (!useSupabase || !!user),
     queryFn: async () => {
       if (isMockAuth(user)) {
         return filterByCompany(sessions, selectedCompanyId, role);
@@ -103,12 +103,12 @@ export function useSessions() {
 }
 
 export function useEvUsers() {
-  const { user, selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
   const role = user?.role ?? "viewer";
   const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["ev_users", role, selectedCompanyId],
-    enabled: !useSupabase || !!user,
+    enabled: isSessionReady && (!useSupabase || !!user),
     queryFn: async () => {
       if (isMockAuth(user)) {
         return filterByCompany(evUsers, selectedCompanyId, role);
@@ -125,12 +125,12 @@ export function useEvUsers() {
 }
 
 export function useVouchers() {
-  const { user, selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
   const role = user?.role ?? "viewer";
   const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["vouchers", role, selectedCompanyId],
-    enabled: !useSupabase || !!user,
+    enabled: isSessionReady && (!useSupabase || !!user),
     queryFn: async () => {
       if (isMockAuth(user)) {
         return filterByCompany(vouchers, selectedCompanyId, role);
@@ -147,12 +147,12 @@ export function useVouchers() {
 }
 
 export function usePushNotifications() {
-  const { user, selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
   const role = user?.role ?? "viewer";
   const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["push_notifications", role, selectedCompanyId],
-    enabled: !useSupabase || !!user,
+    enabled: isSessionReady && (!useSupabase || !!user),
     queryFn: async () => {
       if (isMockAuth(user)) {
         return filterByCompany(pushNotifications, selectedCompanyId, role);
@@ -169,11 +169,11 @@ export function usePushNotifications() {
 }
 
 export function useCompanySettings() {
-  const { user, selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
   const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["company_settings", selectedCompanyId],
-    enabled: !!selectedCompanyId && (!useSupabase || !!user),
+    enabled: isSessionReady && !!selectedCompanyId && (!useSupabase || !!user),
     queryFn: async () => {
       if (!selectedCompanyId) return null;
       const { data, error } = await supabase
@@ -188,11 +188,11 @@ export function useCompanySettings() {
 }
 
 export function useTariffs() {
-  const { user, selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
   const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["tariffs", selectedCompanyId],
-    enabled: !!selectedCompanyId && (!useSupabase || !!user),
+    enabled: isSessionReady && !!selectedCompanyId && (!useSupabase || !!user),
     queryFn: async () => {
       if (!selectedCompanyId) return [];
       const { data, error } = await supabase
@@ -208,12 +208,12 @@ export function useTariffs() {
 
 /** Perfis para Admin Supremo (Landing Page Analytics). Só habilitado para super_admin. */
 export function useProfilesForAdmin() {
-  const { user } = useAuth();
+  const { user, isSessionReady } = useAuth();
   const isSuperAdmin = user?.role === "super_admin";
   const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["profiles-admin", user?.id],
-    enabled: !!isSuperAdmin && (!useSupabase || !!user),
+    enabled: isSessionReady && !!isSuperAdmin && (!useSupabase || !!user),
     retry: 1,
     queryFn: async () => {
       const promise = supabase
@@ -228,12 +228,12 @@ export function useProfilesForAdmin() {
 }
 
 export function useStationRevenue() {
-  const { user, selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
   const role = user?.role ?? "viewer";
   const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["station_revenue", role, selectedCompanyId],
-    enabled: !useSupabase || !!user,
+    enabled: isSessionReady && (!useSupabase || !!user),
     queryFn: async () => {
       if (isMockAuth(user)) {
         const filtered = filterByCompany(sessions, selectedCompanyId, role);

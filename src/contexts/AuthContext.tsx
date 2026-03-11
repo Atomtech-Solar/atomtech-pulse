@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, SUPABASE_AUTH_STORAGE_KEY } from "@/lib/supabaseClient";
 import {
   isSupabaseAuthError,
   logPermissionError,
@@ -49,6 +49,8 @@ interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  /** true = checagem inicial de sessão concluída; queries Supabase só devem rodar quando true */
+  isSessionReady: boolean;
   isBlocked: boolean;
   selectedCompanyId: number | null;
   setSelectedCompanyId: (id: number | null) => void;
@@ -146,6 +148,44 @@ function clearAuthStorage(): void {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const LOGIN_TIMEOUT_MS = 15000;
+/** Timeout curto para getSession - sessões stale causam refresh lento (segundos). */
+const SESSION_CHECK_TIMEOUT_MS = 500;
+
+const AUTH_LOG = {
+  start: (msg: string) => import.meta.env.DEV && console.log(`[Auth] ${msg}`),
+  warn: (msg: string, ...args: unknown[]) => console.warn(`[Auth] ${msg}`, ...args),
+  error: (msg: string, ...args: unknown[]) => console.error(`[Auth] ${msg}`, ...args),
+  /** Logs críticos (sessão inexistente, refresh, falhas) - sempre ativos para debug em produção */
+  auth: (msg: string, data?: Record<string, unknown>) =>
+    (data ? console.info(`[Auth] ${msg}`, data) : console.info(`[Auth] ${msg}`)),
+};
+
+/** Verifica se existe alguma sessão Supabase em localStorage (evita getSession lento quando vazio). */
+function hasStoredSupabaseSession(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const custom = localStorage.getItem(SUPABASE_AUTH_STORAGE_KEY);
+    if (custom) {
+      const parsed = JSON.parse(custom) as { access_token?: string };
+      return !!parsed?.access_token;
+    }
+    // Fallback: chave padrão sb-*-auth-token
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith("sb-") && key.includes("-auth-token")) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw) as { access_token?: string };
+          return !!parsed?.access_token;
+        }
+        return false;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
 
 function withTimeout<T>(promise: Promise<T>, ms: number, msg: string): Promise<T> {
   return Promise.race([
@@ -256,7 +296,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         if (isSupabaseAuthError(err)) {
-          console.warn("[Auth] Erro de autenticação ao buscar perfil:", err);
+          AUTH_LOG.auth("Falha de autenticação ao buscar perfil", {
+            error: err instanceof Error ? err.message : String(err),
+          });
           return false;
         }
       }
@@ -307,7 +349,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.auth
         .refreshSession()
         .then(({ error }) => {
-          if (error) console.warn("[Auth] Falha ao refrescar sessão:", error.message);
+          if (error) AUTH_LOG.auth("Refresh token falhou", { error: error.message });
         })
         .catch(() => {});
     };
@@ -327,6 +369,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        AUTH_LOG.auth(`onAuthStateChange: ${event}`, { hasSession: !!session?.user });
+
         if (event === "SIGNED_OUT") {
           clearAuthStorage();
           setUser(null);
@@ -378,18 +422,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (initRan.current) return;
     initRan.current = true;
 
+    const t0 = performance.now();
+
     try {
+      // Fast path: sem sessão Supabase em localStorage → skip getSession (evita 50-100ms+ em navegadores normais)
+      if (!hasStoredSupabaseSession()) {
+        AUTH_LOG.auth("Sessão inexistente (storage vazio) → skip getSession");
+        clearAuthStorage();
+        setUser(null);
+        setSelectedCompanyId(null);
+        setIsLoading(false);
+        return;
+      }
+
       type SessionResult = Awaited<ReturnType<typeof supabase.auth.getSession>>;
-      const sessionPromise: Promise<SessionResult> = supabase.auth.getSession();
+      const sessionPromise = supabase.auth.getSession();
       const timeoutPromise: Promise<SessionResult> = new Promise((resolve) =>
-        setTimeout(
-          () =>
-            resolve({
-              data: { session: null },
-              error: null,
-            } as SessionResult),
-          2000
-        )
+        setTimeout(() => {
+          AUTH_LOG.auth("getSession timeout - sessão stale, limpando", {
+            timeoutMs: SESSION_CHECK_TIMEOUT_MS,
+          });
+          resolve({ data: { session: null }, error: null } as SessionResult);
+        }, SESSION_CHECK_TIMEOUT_MS)
       );
 
       const {
@@ -397,10 +451,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         error: sessionError,
       } = await Promise.race([sessionPromise, timeoutPromise]);
 
-      console.log("[Auth] session restored:", !!session);
+      const elapsed = Math.round(performance.now() - t0);
+      AUTH_LOG.start(`getSession em ${elapsed}ms, session=${!!session}`);
 
       if (sessionError) {
-        console.warn("[Auth] Erro ao obter sessão:", sessionError);
+        AUTH_LOG.auth("Falha ao obter sessão", { error: String(sessionError?.message ?? sessionError) });
+        try {
+          await supabase.auth.signOut();
+        } catch {
+          /* ignore */
+        }
         clearAuthStorage();
         setUser(null);
         setSelectedCompanyId(null);
@@ -417,18 +477,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           logPermissionError("loadUserFromStorage loadProfile", err);
           await forceLogout();
         }
-        if (import.meta.env.DEV) {
-          console.log("[Auth] Sessão restaurada:", session.user.email);
-        }
+        AUTH_LOG.auth("Sessão restaurada", { email: session.user.email });
       } else {
-        // Sem sessão válida → não restaurar de localStorage (evita queries com auth.uid() NULL)
+        // Timeout ou sessão nula → limpar storage Supabase (evita delay no próximo acesso)
+        AUTH_LOG.auth("Sessão inexistente ou expirada → limpando storage");
+        try {
+          await supabase.auth.signOut();
+        } catch {
+          /* ignore */
+        }
         clearAuthStorage();
         setUser(null);
         setSelectedCompanyId(null);
       }
     } catch (err) {
-      console.error("[Auth] loadUserFromStorage error:", err);
+      AUTH_LOG.error("loadUserFromStorage error:", err);
       logPermissionError("loadUserFromStorage", err);
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        /* ignore */
+      }
       clearAuthStorage();
       setUser(null);
       setSelectedCompanyId(null);
@@ -478,6 +547,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       try {
+        AUTH_LOG.start("loginWithSupabase iniciando...");
         const signInPromise = supabase.auth.signInWithPassword({
           email: email.trim().toLowerCase(),
           password,
@@ -578,6 +648,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         loginJustCompletedRef.current = true;
         applyAuthUser(authUser);
+        AUTH_LOG.start("loginWithSupabase concluído com sucesso");
         return { redirectPath: getRedirectPath(authUser) };
       } catch (err) {
         console.error("[Auth] loginWithSupabase error:", err);
@@ -613,6 +684,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAuthenticated: !!user,
         isLoading,
+        isSessionReady: !isLoading,
         isBlocked: isBlockedUser(user),
         selectedCompanyId,
         setSelectedCompanyId,

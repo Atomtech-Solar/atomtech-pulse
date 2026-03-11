@@ -36,11 +36,15 @@ if (typeof window !== "undefined") {
 const url = supabaseUrl ?? "";
 const key = supabaseAnonKey ?? "";
 
+/** Chave do localStorage para sessão Supabase (evita conflito com outras apps). */
+export const SUPABASE_AUTH_STORAGE_KEY = "topup-supabase-auth";
+
 export const supabase = createClient<Database>(url, key, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    storageKey: SUPABASE_AUTH_STORAGE_KEY,
   },
 });
 
