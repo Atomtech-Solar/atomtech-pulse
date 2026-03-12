@@ -1,19 +1,24 @@
 const WebSocket = require("ws");
 
-const CHARGER_ID = "CP001";
-const PORT = process.env.PORT || 3000;
-const WS_URL = `ws://localhost:${PORT}/ocpp/${CHARGER_ID}`;
+// URL do backend OCPP no Railway (override via OCPP_SERVER_URL para testes locais)
+const SERVER_BASE =
+  process.env.OCPP_SERVER_URL ||
+  "https://renewed-exploration-production.up.railway.app";
+const CHARGER_ID = "TEST_CHARGER";
+const WS_URL = `${SERVER_BASE.replace(/^http/, "ws")}/ocpp/${CHARGER_ID}`;
 
 /** OCPP 1.6 Call: [2, uniqueId, action, payload] */
 function ocppCall(uniqueId, action, payload) {
   return JSON.stringify([2, uniqueId, action, payload]);
 }
 
-/** Parse CallResult: [3, uniqueId, payload] */
-function parseCallResult(data) {
+/** Parse CallResult: [3, uniqueId, payload] ou CallError: [4, uniqueId, code, desc] */
+function parseResponse(data) {
   try {
     const arr = JSON.parse(data.toString());
-    if (Array.isArray(arr) && arr[0] === 3) return { uniqueId: arr[1], payload: arr[2] };
+    if (!Array.isArray(arr)) return null;
+    if (arr[0] === 3) return { type: "result", uniqueId: arr[1], payload: arr[2] };
+    if (arr[0] === 4) return { type: "error", uniqueId: arr[1], code: arr[2], desc: arr[3] };
   } catch {}
   return null;
 }
@@ -23,28 +28,47 @@ function sleep(ms) {
 }
 
 async function run() {
+  console.log("[TEST] Conectando em:", WS_URL);
+  console.log("[TEST] Subprotocolo: ocpp1.6\n");
+
   const ws = new WebSocket(WS_URL, ["ocpp1.6"]);
 
   const pending = new Map();
 
+  ws.on("open", () => {
+    console.log("[CONEXÃO] WebSocket aberta com sucesso\n");
+  });
+
   ws.on("message", (data) => {
-    const result = parseCallResult(data);
-    if (result) {
-      const resolver = pending.get(result.uniqueId);
-      if (resolver) {
-        pending.delete(result.uniqueId);
-        resolver(result.payload);
+    const resp = parseResponse(data);
+    if (resp) {
+      if (resp.type === "result") {
+        const resolver = pending.get(resp.uniqueId);
+        if (resolver) {
+          pending.delete(resp.uniqueId);
+          resolver(resp.payload);
+        }
+        console.log("[RESPOSTA] CallResult:", JSON.stringify(resp.payload, null, 2));
+      } else {
+        console.error("[RESPOSTA] CallError:", resp.code, "-", resp.desc);
       }
+    } else {
+      console.log("[RESPOSTA] Mensagem recebida:", data.toString());
     }
-    console.log("Resposta do servidor:", data.toString());
+  });
+
+  ws.on("error", (err) => {
+    console.error("[ERRO] Conexão WebSocket:", err.message);
+  });
+
+  ws.on("close", () => {
+    console.log("\n[CONEXÃO] WebSocket encerrada");
   });
 
   await new Promise((resolve, reject) => {
     ws.on("open", resolve);
     ws.on("error", reject);
   });
-
-  console.log("Carregador conectado ao servidor\n");
 
   function sendAndWait(uniqueId, action, payload) {
     return new Promise((resolve, reject) => {
@@ -53,7 +77,7 @@ async function run() {
           pending.delete(uniqueId);
           reject(new Error(`Timeout: ${action}`));
         }
-      }, 5000);
+      }, 10000);
       pending.set(uniqueId, (result) => {
         clearTimeout(timer);
         resolve(result);
@@ -63,82 +87,30 @@ async function run() {
   }
 
   try {
-    // 1. BootNotification
-    console.log("BootNotification enviado");
-    await sendAndWait("boot-1", "BootNotification", {
+    // BootNotification (OCPP 1.6)
+    console.log("[ENVIO] BootNotification");
+    const bootResult = await sendAndWait("boot-1", "BootNotification", {
       chargePointVendor: "Atomtech",
-      chargePointModel: "Pulse-Simulator",
-    });
-    await sleep(300);
-
-    // 2. Heartbeat
-    console.log("Heartbeat enviado");
-    await sendAndWait("hb-1", "Heartbeat", {});
-    await sleep(300);
-
-    // 3. Authorize (fluxo típico: RFID antes de StartTransaction)
-    console.log("Authorize enviado");
-    await sendAndWait("auth-1", "Authorize", { idTag: "TEST_USER" });
-    await sleep(300);
-
-    // 4. StartTransaction
-    console.log("StartTransaction enviado");
-    const startPayload = {
-      connectorId: 1,
-      idTag: "TEST_USER",
-      meterStart: 120000,
-      timestamp: new Date().toISOString(),
-    };
-    const startResult = await sendAndWait("st-1", "StartTransaction", startPayload);
-    const transactionId = startResult?.transactionId;
-    if (transactionId == null) {
-      throw new Error("StartTransaction não retornou transactionId");
-    }
-    console.log(`  → transactionId: ${transactionId}`);
-    await sleep(300);
-
-    // 5. MeterValues (5 mensagens simulando carregamento)
-    const meterValues = [120500, 121000, 121500, 122000, 122500];
-    console.log("MeterValues enviados (5 mensagens)");
-    for (let i = 0; i < meterValues.length; i++) {
-      const value = meterValues[i];
-      await sendAndWait(`mv-${i + 1}`, "MeterValues", {
-        connectorId: 1,
-        transactionId,
-        meterValue: [
-          {
-            timestamp: new Date().toISOString(),
-            sampledValue: [
-              {
-                value: String(value),
-                measurand: "Energy.Active.Import.Register",
-                unit: "Wh",
-              },
-            ],
-          },
-        ],
-      });
-      await sleep(400);
-    }
-
-    // 6. StopTransaction
-    console.log("StopTransaction enviado");
-    await sendAndWait("stop-1", "StopTransaction", {
-      transactionId,
-      meterStop: 125000,
-      timestamp: new Date().toISOString(),
+      chargePointModel: "Simulador",
+      chargePointSerialNumber: "TEST-001",
+      firmwareVersion: "1.0.0",
     });
 
-    console.log("\n✅ Sessão completa simulada com sucesso!");
-    console.log("   energy_kwh esperado: 5.0 kWh (125000 - 120000 Wh)");
+    if (bootResult?.status === "Accepted") {
+      console.log("[OK] BootNotification aceito pelo servidor\n");
+    } else {
+      console.warn("[AVISO] BootNotification:", bootResult);
+    }
+
+    await sleep(500);
+    ws.close();
   } catch (err) {
-    console.error("\n❌ Erro:", err.message);
-  } finally {
+    console.error("\n[ERRO]", err.message);
     ws.close();
   }
 }
 
 run().catch((err) => {
-  console.error("Falha ao conectar:", err.message);
+  console.error("[ERRO] Falha ao conectar:", err.message);
   process.exit(1);
 });
