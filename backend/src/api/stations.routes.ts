@@ -13,6 +13,8 @@ stationsRouter.get("/", async (_req, res) => {
         charge_point_id: s.charge_point_id,
         status: s.status,
         last_seen: s.last_seen,
+        charge_point_vendor: s.charge_point_vendor ?? null,
+        charge_point_model: s.charge_point_model ?? null,
         city: s.city,
         uf: s.uf,
         total_kwh: s.total_kwh,

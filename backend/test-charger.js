@@ -23,7 +23,7 @@ function sleep(ms) {
 }
 
 async function run() {
-  const ws = new WebSocket(WS_URL);
+  const ws = new WebSocket(WS_URL, ["ocpp1.6"]);
 
   const pending = new Map();
 
@@ -76,7 +76,12 @@ async function run() {
     await sendAndWait("hb-1", "Heartbeat", {});
     await sleep(300);
 
-    // 3. StartTransaction
+    // 3. Authorize (fluxo típico: RFID antes de StartTransaction)
+    console.log("Authorize enviado");
+    await sendAndWait("auth-1", "Authorize", { idTag: "TEST_USER" });
+    await sleep(300);
+
+    // 4. StartTransaction
     console.log("StartTransaction enviado");
     const startPayload = {
       connectorId: 1,
@@ -92,7 +97,7 @@ async function run() {
     console.log(`  → transactionId: ${transactionId}`);
     await sleep(300);
 
-    // 4. MeterValues (5 mensagens simulando carregamento)
+    // 5. MeterValues (5 mensagens simulando carregamento)
     const meterValues = [120500, 121000, 121500, 122000, 122500];
     console.log("MeterValues enviados (5 mensagens)");
     for (let i = 0; i < meterValues.length; i++) {
@@ -116,7 +121,7 @@ async function run() {
       await sleep(400);
     }
 
-    // 5. StopTransaction
+    // 6. StopTransaction
     console.log("StopTransaction enviado");
     await sendAndWait("stop-1", "StopTransaction", {
       transactionId,

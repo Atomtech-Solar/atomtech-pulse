@@ -17,6 +17,8 @@ export interface StationRow {
   company_id: number;
   status: string;
   last_seen: string | null;
+  charge_point_vendor?: string | null;
+  charge_point_model?: string | null;
   city: string | null;
   uf: string | null;
   total_kwh: number;
@@ -40,7 +42,7 @@ export async function findStationByChargePointId(
 ): Promise<StationRow | null> {
   const { data, error } = await supabase
     .from("stations")
-    .select("id, charge_point_id, company_id, name, status, last_seen, total_kwh, total_sessions")
+    .select("id, charge_point_id, company_id, name, status, last_seen, charge_point_vendor, charge_point_model, total_kwh, total_sessions")
     .eq("charge_point_id", chargePointId)
     .single();
 
@@ -53,6 +55,37 @@ export async function updateStationOnline(chargePointId: string): Promise<boolea
   const { error } = await supabase
     .from("stations")
     .update({ status: "online", last_seen: new Date().toISOString() })
+    .eq("charge_point_id", chargePointId);
+
+  return !error;
+}
+
+/** Atualiza status, last_seen, vendor e model (BootNotification completo) */
+export async function updateStationBootInfo(
+  chargePointId: string,
+  vendor?: string | null,
+  model?: string | null
+): Promise<boolean> {
+  const updates: Record<string, unknown> = {
+    status: "online",
+    last_seen: new Date().toISOString(),
+  };
+  if (vendor != null && vendor !== "") updates.charge_point_vendor = String(vendor).slice(0, 50);
+  if (model != null && model !== "") updates.charge_point_model = String(model).slice(0, 50);
+
+  const { error } = await supabase
+    .from("stations")
+    .update(updates)
+    .eq("charge_point_id", chargePointId);
+
+  return !error;
+}
+
+/** Marca estação como offline (desconexão WebSocket) */
+export async function updateStationOffline(chargePointId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from("stations")
+    .update({ status: "offline" })
     .eq("charge_point_id", chargePointId);
 
   return !error;
@@ -129,7 +162,7 @@ export async function addStationKwh(
 export async function listStations(): Promise<StationRow[]> {
   const { data, error } = await supabase
     .from("stations")
-    .select("id, name, charge_point_id, company_id, status, last_seen, city, uf, total_kwh, total_sessions, created_at")
+    .select("id, name, charge_point_id, company_id, status, last_seen, charge_point_vendor, charge_point_model, city, uf, total_kwh, total_sessions, created_at")
     .order("name");
 
   if (error) throw error;
@@ -141,6 +174,8 @@ export async function listStations(): Promise<StationRow[]> {
     company_id: row.company_id,
     status: String(row.status ?? "offline"),
     last_seen: row.last_seen ? String(row.last_seen) : null,
+    charge_point_vendor: row.charge_point_vendor ? String(row.charge_point_vendor) : null,
+    charge_point_model: row.charge_point_model ? String(row.charge_point_model) : null,
     city: row.city ? String(row.city) : null,
     uf: row.uf ? String(row.uf) : null,
     total_kwh: Number(row.total_kwh) ?? 0,

@@ -1,7 +1,7 @@
 import type { WebSocket } from "ws";
 import {
   findStationByChargePointId,
-  updateStationOnline,
+  updateStationBootInfo,
   updateStationLastSeen,
   updateStationStatus,
   incrementStationSessions,
@@ -27,19 +27,36 @@ export function setRealtimeEmitter(emitter: RealtimeEmitter) {
   realtimeEmitter = emitter;
 }
 
+export function getRealtimeEmitter(): RealtimeEmitter {
+  return realtimeEmitter;
+}
+
 function parseOcppMessage(data: Buffer | string): OcppMessage | null {
   try {
     const parsed = JSON.parse(data.toString());
     if (!Array.isArray(parsed) || parsed.length < 3) return null;
     return {
       messageTypeId: parsed[0],
-      uniqueId: parsed[1],
+      uniqueId: String(parsed[1] ?? ""),
       action: parsed[2],
       payload: parsed[3],
     };
   } catch {
     return null;
   }
+}
+
+/** Extrai uniqueId de mensagem possivelmente malformada para enviar CallError */
+function tryExtractUniqueId(data: Buffer | string): string | null {
+  try {
+    const parsed = JSON.parse(data.toString());
+    if (Array.isArray(parsed) && parsed.length >= 2 && parsed[1] != null) {
+      return String(parsed[1]);
+    }
+  } catch {
+    /* ignorar */
+  }
+  return null;
 }
 
 function sendCallResult(ws: WebSocket, uniqueId: string, payload: unknown) {
@@ -52,9 +69,25 @@ function sendCallError(ws: WebSocket, uniqueId: string, code: string, descriptio
 
 export function handleOcppMessage(chargePointId: string, ws: WebSocket, data: Buffer | string): void {
   const msg = parseOcppMessage(data);
-  if (!msg || msg.messageTypeId !== 2) return;
+  if (!msg) {
+    const uniqueId = tryExtractUniqueId(data);
+    if (uniqueId) {
+      sendCallError(ws, uniqueId, "FormationViolation", "Mensagem JSON inválida ou formato incorreto");
+    }
+    console.error(`[OCPP] Erro de protocolo (${chargePointId}): mensagem JSON inválida`);
+    return;
+  }
+  if (msg.messageTypeId !== 2) {
+    const uniqueId = msg.uniqueId || tryExtractUniqueId(data);
+    if (uniqueId) {
+      sendCallError(ws, uniqueId, "FormationViolation", `Tipo de mensagem inválido: ${msg.messageTypeId} (esperado 2=CALL)`);
+    }
+    console.warn(`[OCPP] Mensagem ignorada (${chargePointId}): tipo ${msg.messageTypeId}`);
+    return;
+  }
 
   const { uniqueId, action, payload } = msg;
+  console.log(`[OCPP] Mensagem recebida: ${chargePointId} → ${action}`);
 
   switch (action) {
     case "BootNotification":
@@ -62,6 +95,9 @@ export function handleOcppMessage(chargePointId: string, ws: WebSocket, data: Bu
       break;
     case "Heartbeat":
       handleHeartbeat(chargePointId, ws, uniqueId);
+      break;
+    case "Authorize":
+      handleAuthorize(chargePointId, ws, uniqueId, payload);
       break;
     case "StatusNotification":
       handleStatusNotification(chargePointId, ws, uniqueId, payload);
@@ -76,6 +112,7 @@ export function handleOcppMessage(chargePointId: string, ws: WebSocket, data: Bu
       handleMeterValues(chargePointId, ws, uniqueId, payload);
       break;
     default:
+      console.warn(`[OCPP] Action não suportada: ${chargePointId} → ${action}`);
       sendCallError(ws, uniqueId, "NotSupported", `Action ${action} não suportada`);
   }
 }
@@ -84,15 +121,17 @@ async function handleBootNotification(
   chargePointId: string,
   ws: WebSocket,
   uniqueId: string,
-  _payload: unknown
+  payload: unknown
 ) {
-  console.log("BootNotification recebido");
+  const p = payload as { chargePointVendor?: string; chargePointModel?: string } | undefined;
+  const vendor = p?.chargePointVendor;
+  const model = p?.chargePointModel;
 
   const station = await findStationByChargePointId(chargePointId);
   if (station) {
-    await updateStationOnline(chargePointId);
+    await updateStationBootInfo(chargePointId, vendor, model);
   } else {
-    console.warn("Estação não cadastrada:", chargePointId);
+    console.warn(`[OCPP] Estação não cadastrada: ${chargePointId}`);
   }
 
   const response = {
@@ -105,21 +144,32 @@ async function handleBootNotification(
   realtimeEmitter("charge_point_connected", { chargePointId, action: "BootNotification" });
 }
 
-async function handleHeartbeat(chargePointId: string, ws: WebSocket, uniqueId: string) {
-  console.log("Heartbeat recebido");
+/** Valida idTag antes de iniciar transação (OCPP 1.6 Core). Aceita todos os ids por padrão. */
+async function handleAuthorize(
+  chargePointId: string,
+  ws: WebSocket,
+  uniqueId: string,
+  payload: unknown
+) {
+  const p = payload as { idTag?: string } | undefined;
+  const idTag = p?.idTag ?? "";
+  console.log(`[OCPP] Authorize: ${chargePointId} idTag=${idTag}`);
 
+  const response = {
+    idTagInfo: { status: "Accepted" as const },
+  };
+  sendCallResult(ws, uniqueId, response);
+}
+
+async function handleHeartbeat(chargePointId: string, ws: WebSocket, uniqueId: string) {
   const station = await findStationByChargePointId(chargePointId);
   if (station) {
     await updateStationLastSeen(chargePointId);
   } else {
-    console.warn("Estação não cadastrada:", chargePointId);
+    console.warn(`[OCPP] Estação não cadastrada: ${chargePointId}`);
   }
 
-  const response = {
-    currentTime: new Date().toISOString(),
-  };
-
-  sendCallResult(ws, uniqueId, response);
+  sendCallResult(ws, uniqueId, { currentTime: new Date().toISOString() });
 }
 
 async function handleStatusNotification(
@@ -130,8 +180,6 @@ async function handleStatusNotification(
 ) {
   const p = payload as { status?: string } | undefined;
   const status = p?.status ?? "Available";
-
-  console.log("StatusNotification:", status);
 
   const station = await findStationByChargePointId(chargePointId);
   if (station) {
@@ -150,7 +198,7 @@ async function handleStatusNotification(
     await updateStationStatus(chargePointId, dbStatus);
     realtimeEmitter("status_notification", { chargePointId, status: dbStatus });
   } else {
-    console.warn("Estação não cadastrada:", chargePointId);
+    console.warn(`[OCPP] Estação não cadastrada: ${chargePointId}`);
   }
 
   sendCallResult(ws, uniqueId, {});
@@ -162,8 +210,6 @@ async function handleStartTransaction(
   uniqueId: string,
   payload: unknown
 ) {
-  console.log("StartTransaction recebido");
-
   const p = payload as { connectorId?: number; idTag?: string; meterStart?: number } | undefined;
   const connectorId = p?.connectorId ?? 1;
   const meterStart = p?.meterStart ?? 0;
@@ -182,7 +228,7 @@ async function handleStartTransaction(
       await incrementStationSessions(chargePointId);
     }
   } else {
-    console.warn("Estação não cadastrada:", chargePointId);
+    console.warn(`[OCPP] Estação não cadastrada: ${chargePointId}`);
   }
 
   const response = {
@@ -192,6 +238,7 @@ async function handleStartTransaction(
 
   sendCallResult(ws, uniqueId, response);
   realtimeEmitter("start_transaction", { chargePointId, transactionId: ocppTransactionId });
+  console.log(`[OCPP] Sessão iniciada: ${chargePointId} | connector=${connectorId} | txId=${ocppTransactionId}`);
 }
 
 async function handleStopTransaction(
@@ -200,14 +247,19 @@ async function handleStopTransaction(
   uniqueId: string,
   payload: unknown
 ) {
-  console.log("StopTransaction recebido");
-
   const p = payload as { transactionId?: number; meterStop?: number } | undefined;
   const ocppTransactionId = p?.transactionId;
   const meterStop = p?.meterStop ?? 0;
 
+  let energyKwh = 0;
   if (ocppTransactionId != null) {
-    await stopTransaction(ocppTransactionId, meterStop);
+    const result = await stopTransaction(ocppTransactionId, meterStop);
+    if (result) {
+      energyKwh = result.energyKwh;
+      console.log(
+        `[OCPP] Sessão finalizada: ${chargePointId} | txId=${ocppTransactionId} | energia=${energyKwh.toFixed(2)} kWh`
+      );
+    }
   }
 
   const response = {
@@ -224,8 +276,6 @@ async function handleMeterValues(
   uniqueId: string,
   payload: unknown
 ) {
-  console.log("MeterValues recebido");
-
   const station = await findStationByChargePointId(chargePointId);
   if (station) {
     await updateStationLastSeen(chargePointId);
