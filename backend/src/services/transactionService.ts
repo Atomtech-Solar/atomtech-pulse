@@ -1,4 +1,4 @@
-import { supabase } from "../database/supabaseClient";
+import { getSupabase } from "../database/supabaseClient";
 import { addStationKwh } from "./stationService";
 
 export interface TransactionRow {
@@ -24,6 +24,7 @@ export async function createTransaction(
   meterStart: number,
   ocppTransactionId: number
 ): Promise<TransactionRow | null> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from("transactions")
     .insert({
@@ -51,6 +52,7 @@ export async function stopTransaction(
   ocppTransactionId: number,
   meterStop: number
 ): Promise<{ energyKwh: number; chargePointId: string } | null> {
+  const supabase = getSupabase();
   const { data: tx, error: fetchError } = await supabase
     .from("transactions")
     .select("id, charge_point_id, meter_start")
@@ -93,6 +95,7 @@ export async function updateTransactionEnergy(
   ocppTransactionId: number,
   meterValue: number
 ): Promise<boolean> {
+  const supabase = getSupabase();
   const { data: tx, error: fetchError } = await supabase
     .from("transactions")
     .select("meter_start")

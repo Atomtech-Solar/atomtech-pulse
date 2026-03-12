@@ -14,6 +14,7 @@ import {
   getOcppWss,
   OCPP_PATH_PREFIX,
 } from "./ocpp/ocppServer";
+import { isSupabaseConfigured } from "./database/supabaseClient";
 
 // ========== Tratamento global de erros (evita crash do processo) ==========
 process.on("uncaughtException", (err) => {
@@ -26,22 +27,11 @@ process.on("unhandledRejection", (reason, promise) => {
 
 // ========== Validação de variáveis de ambiente ==========
 const PORT = Number(process.env.PORT) || 3000;
-const SUPABASE_URL =
-  process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? "";
-const SUPABASE_SERVICE_ROLE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ??
-  process.env.SUPABASE_ANON_KEY ??
-  process.env.VITE_SUPABASE_ANON_KEY ??
-  "";
 
-if (!SUPABASE_URL) {
+if (!isSupabaseConfigured()) {
   console.warn(
-    "[ENV] AVISO: SUPABASE_URL não definida. Operações de banco podem falhar."
-  );
-}
-if (!SUPABASE_SERVICE_ROLE_KEY) {
-  console.warn(
-    "[ENV] AVISO: SUPABASE_SERVICE_ROLE_KEY ou SUPABASE_ANON_KEY não definidas. Operações de banco podem falhar."
+    "[ENV] AVISO: SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY não definidas. " +
+      "Operações de banco (OCPP, API) falharão até que as variáveis sejam configuradas."
   );
 }
 

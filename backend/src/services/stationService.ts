@@ -1,4 +1,4 @@
-import { supabase } from "../database/supabaseClient";
+import { getSupabase } from "../database/supabaseClient";
 
 export const VALID_STATUSES = [
   "offline",
@@ -40,6 +40,7 @@ export interface CreateStationInput {
 export async function findStationByChargePointId(
   chargePointId: string
 ): Promise<StationRow | null> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from("stations")
     .select("id, charge_point_id, company_id, name, status, last_seen, charge_point_vendor, charge_point_model, total_kwh, total_sessions")
@@ -52,6 +53,7 @@ export async function findStationByChargePointId(
 
 /** Atualiza status e last_seen (BootNotification, conexão) */
 export async function updateStationOnline(chargePointId: string): Promise<boolean> {
+  const supabase = getSupabase();
   const { error } = await supabase
     .from("stations")
     .update({ status: "online", last_seen: new Date().toISOString() })
@@ -73,6 +75,7 @@ export async function updateStationBootInfo(
   if (vendor != null && vendor !== "") updates.charge_point_vendor = String(vendor).slice(0, 50);
   if (model != null && model !== "") updates.charge_point_model = String(model).slice(0, 50);
 
+  const supabase = getSupabase();
   const { error } = await supabase
     .from("stations")
     .update(updates)
@@ -83,6 +86,7 @@ export async function updateStationBootInfo(
 
 /** Marca estação como offline (desconexão WebSocket) */
 export async function updateStationOffline(chargePointId: string): Promise<boolean> {
+  const supabase = getSupabase();
   const { error } = await supabase
     .from("stations")
     .update({ status: "offline" })
@@ -93,6 +97,7 @@ export async function updateStationOffline(chargePointId: string): Promise<boole
 
 /** Atualiza apenas last_seen (Heartbeat) */
 export async function updateStationLastSeen(chargePointId: string): Promise<boolean> {
+  const supabase = getSupabase();
   const { error } = await supabase
     .from("stations")
     .update({ last_seen: new Date().toISOString() })
@@ -107,6 +112,7 @@ export async function updateStationStatus(
   status: string
 ): Promise<boolean> {
   const normalized = VALID_STATUSES.includes(status as StationStatus) ? status : "offline";
+  const supabase = getSupabase();
   const { error } = await supabase
     .from("stations")
     .update({ status: normalized, last_seen: new Date().toISOString() })
@@ -117,6 +123,7 @@ export async function updateStationStatus(
 
 /** Incrementa total_sessions (StartTransaction) */
 export async function incrementStationSessions(chargePointId: string): Promise<boolean> {
+  const supabase = getSupabase();
   const { data: station } = await supabase
     .from("stations")
     .select("total_sessions")
@@ -141,6 +148,7 @@ export async function addStationKwh(
 ): Promise<boolean> {
   if (kwhToAdd <= 0) return true;
 
+  const supabase = getSupabase();
   const { data: station } = await supabase
     .from("stations")
     .select("total_kwh")
@@ -160,6 +168,7 @@ export async function addStationKwh(
 
 /** Lista todas as estações (para GET /stations) */
 export async function listStations(): Promise<StationRow[]> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from("stations")
     .select("id, name, charge_point_id, company_id, status, last_seen, charge_point_vendor, charge_point_model, city, uf, total_kwh, total_sessions, created_at")
@@ -197,6 +206,7 @@ export async function createStation(input: CreateStationInput): Promise<StationR
     status: "offline",
   };
 
+  const supabase = getSupabase();
   const { data, error } = await supabase.from("stations").insert(insert).select().single();
 
   if (error) {

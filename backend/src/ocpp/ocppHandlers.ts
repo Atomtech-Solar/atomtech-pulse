@@ -89,27 +89,35 @@ export function handleOcppMessage(chargePointId: string, ws: WebSocket, data: Bu
   const { uniqueId, action, payload } = msg;
   console.log(`[OCPP] Mensagem recebida: ${chargePointId} → ${action}`);
 
+  /** Encapsula handler async para capturar erros (ex: Supabase) e enviar InternalError em vez de derrubar */
+  const run = (fn: () => Promise<void>) => {
+    fn().catch((err) => {
+      console.error(`[OCPP] Erro em ${action} (${chargePointId}):`, err);
+      sendCallError(ws, uniqueId, "InternalError", "Erro interno do servidor");
+    });
+  };
+
   switch (action) {
     case "BootNotification":
-      handleBootNotification(chargePointId, ws, uniqueId, payload);
+      run(() => handleBootNotification(chargePointId, ws, uniqueId, payload));
       break;
     case "Heartbeat":
-      handleHeartbeat(chargePointId, ws, uniqueId);
+      run(() => handleHeartbeat(chargePointId, ws, uniqueId));
       break;
     case "Authorize":
-      handleAuthorize(chargePointId, ws, uniqueId, payload);
+      run(() => handleAuthorize(chargePointId, ws, uniqueId, payload));
       break;
     case "StatusNotification":
-      handleStatusNotification(chargePointId, ws, uniqueId, payload);
+      run(() => handleStatusNotification(chargePointId, ws, uniqueId, payload));
       break;
     case "StartTransaction":
-      handleStartTransaction(chargePointId, ws, uniqueId, payload);
+      run(() => handleStartTransaction(chargePointId, ws, uniqueId, payload));
       break;
     case "StopTransaction":
-      handleStopTransaction(chargePointId, ws, uniqueId, payload);
+      run(() => handleStopTransaction(chargePointId, ws, uniqueId, payload));
       break;
     case "MeterValues":
-      handleMeterValues(chargePointId, ws, uniqueId, payload);
+      run(() => handleMeterValues(chargePointId, ws, uniqueId, payload));
       break;
     default:
       console.warn(`[OCPP] Action não suportada: ${chargePointId} → ${action}`);
