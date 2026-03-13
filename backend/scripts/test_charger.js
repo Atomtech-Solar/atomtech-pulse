@@ -9,6 +9,7 @@ const WS_URL = `${BASE_URL.replace(/^http/, "ws")}/ocpp/${CHARGER_ID}`;
 
 const METER_INTERVAL_MS = 5000;
 const START_TX_DELAY_MS = 2000;
+const MAX_KWH = 10;
 
 /** OCPP 1.6 Call: [2, uniqueId, action, payload] */
 function ocppCall(uniqueId, action, payload) {
@@ -38,6 +39,7 @@ async function run() {
   let transactionId = null;
   let energyKwh = 0;
   let meterCounter = 0;
+  let meterIntervalId = null;
 
   ws.on("open", () => {
     console.log("Connected to server\n");
@@ -115,6 +117,22 @@ async function run() {
     };
     ws.send(ocppCall(uniqueId, "MeterValues", payload));
     console.log(`MeterValues sent: ${energyKwh} kWh`);
+
+    if (energyKwh >= MAX_KWH) {
+      clearInterval(meterIntervalId);
+      meterIntervalId = null;
+      (async () => {
+        await sendAndWait("stop-1", "StopTransaction", {
+          transactionId,
+          idTag: "TEST_USER",
+          meterStop: energyWh,
+          timestamp: new Date().toISOString(),
+        });
+        console.log("StopTransaction sent");
+        console.log("Charging session finished");
+        ws.close();
+      })();
+    }
   }
 
   try {
@@ -142,7 +160,7 @@ async function run() {
     console.log("Transaction started (id:", transactionId, ")\n");
 
     // MeterValues every 5 seconds
-    setInterval(sendMeterValues, METER_INTERVAL_MS);
+    meterIntervalId = setInterval(sendMeterValues, METER_INTERVAL_MS);
   } catch (err) {
     console.error("Error:", err.message);
     ws.close();
