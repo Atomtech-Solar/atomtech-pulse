@@ -39,6 +39,15 @@ export interface CreateStationInput {
   charge_point_model?: string | null;
 }
 
+/** Sessão recente da estação (transação OCPP) */
+export type StationSession = {
+  transaction_id: string | number;
+  connector_id: number;
+  start_time: string;
+  stop_time: string | null;
+  energy_kwh: number;
+};
+
 /** Busca estação por charge_point_id (para OCPP - usa SERVICE_ROLE) */
 export async function findStationByChargePointId(
   chargePointId: string
@@ -199,13 +208,7 @@ export async function getStationByIdWithDetails(
     power_kw: number;
     current_transaction_id: number | null;
   }>;
-  recent_sessions?: Array<{
-    transaction_id: string | number;
-    connector_id: number;
-    start_time: string;
-    stop_time: string | null;
-    energy_kwh: number;
-  }>;
+  recent_sessions?: StationSession[];
 } | null> {
   const id = Number(stationId);
   if (Number.isNaN(id)) return null;
@@ -228,22 +231,17 @@ export async function getStationByIdWithDetails(
     .order("start_time", { ascending: false })
     .limit(10);
 
+  const s = station as Record<string, unknown>;
   return {
-    station_id: (station as Record<string, unknown>).id,
-    charge_point_id: String((station as Record<string, unknown>).charge_point_id ?? ""),
-    vendor: (station as Record<string, unknown>).charge_point_vendor
-      ? String((station as Record<string, unknown>).charge_point_vendor)
-      : null,
-    model: (station as Record<string, unknown>).charge_point_model
-      ? String((station as Record<string, unknown>).charge_point_model)
-      : null,
+    station_id: s.id as string | number,
+    charge_point_id: String(s.charge_point_id ?? ""),
+    vendor: s.charge_point_vendor ? String(s.charge_point_vendor) : null,
+    model: s.charge_point_model ? String(s.charge_point_model) : null,
     firmware: null,
-    status: String((station as Record<string, unknown>).status ?? "offline"),
-    last_seen: (station as Record<string, unknown>).last_seen
-      ? String((station as Record<string, unknown>).last_seen)
-      : null,
-    total_sessions: Number((station as Record<string, unknown>).total_sessions) ?? 0,
-    total_kwh: Number((station as Record<string, unknown>).total_kwh) ?? 0,
+    status: String(s.status ?? "offline"),
+    last_seen: s.last_seen ? String(s.last_seen) : null,
+    total_sessions: Number(s.total_sessions) ?? 0,
+    total_kwh: Number(s.total_kwh) ?? 0,
     connectors: connectors.map((c) => ({
       connector_id: c.connector_id,
       status: c.status,
@@ -251,12 +249,12 @@ export async function getStationByIdWithDetails(
       power_kw: Number(c.power_kw) ?? 0,
       current_transaction_id: c.current_transaction_id,
     })),
-    recent_sessions: (txData ?? []).map((t: Record<string, unknown>) => ({
-      transaction_id: t.ocpp_transaction_id ?? t.id,
-      connector_id: Number(t.connector_id),
-      start_time: String(t.start_time ?? ""),
-      stop_time: t.end_time ? String(t.end_time) : null,
-      energy_kwh: Number(t.energy_kwh) ?? 0,
+    recent_sessions: (txData ?? []).map((row: Record<string, unknown>): StationSession => ({
+      transaction_id: (row.ocpp_transaction_id ?? row.id) as string | number,
+      connector_id: Number(row.connector_id),
+      start_time: String(row.start_time ?? ""),
+      stop_time: row.end_time ? String(row.end_time) : null,
+      energy_kwh: Number(row.energy_kwh) ?? 0,
     })),
   };
 }

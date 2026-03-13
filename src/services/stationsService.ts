@@ -175,12 +175,12 @@ export async function getStationDetails(stationId: string): Promise<StationDetai
     .order("start_time", { ascending: false })
     .limit(10);
 
-  const recent_sessions = ((txData ?? []) as Array<Record<string, unknown>>).map((t) => ({
-    transaction_id: t.ocpp_transaction_id ?? t.id,
-    connector_id: Number(t.connector_id),
-    start_time: String(t.start_time ?? ""),
-    stop_time: t.end_time ? String(t.end_time) : null,
-    energy_kwh: Number(t.energy_kwh) ?? 0,
+  const recent_sessions = ((txData ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    transaction_id: (row.ocpp_transaction_id ?? row.id) as string | number,
+    connector_id: Number(row.connector_id),
+    start_time: String(row.start_time ?? ""),
+    stop_time: row.end_time ? String(row.end_time) : null,
+    energy_kwh: Number(row.energy_kwh) ?? 0,
   }));
 
   return {
