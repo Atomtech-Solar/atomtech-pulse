@@ -1,8 +1,14 @@
-# Railway config: Root Directory = backend
-# Usa Nixpacks (build automático Node.js)
-
 [build]
-builder = "nixpacks"
+builder = "NIXPACKS"
 
-[deploy]
-startCommand = "npm start"
+[phases.setup]
+nixPkgs = ["nodejs"]
+
+[phases.install]
+cmd = "npm install"
+
+[phases.build]
+cmd = "npm run build"
+
+[start]
+cmd = "npm start"

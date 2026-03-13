@@ -6,7 +6,6 @@
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "pnpm@9.14.2",
   "scripts": {
     "dev": "ts-node -r dotenv/config src/server.ts",
     "build": "tsc",
