@@ -6,57 +6,30 @@ import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Zap } from "lucide-react";
+import StationHeader from "@/components/stations/StationHeader";
+import ConnectorCard from "@/components/stations/ConnectorCard";
+import SessionTable from "@/components/stations/SessionTable";
+import {
+  statusColors,
+  statusLabels,
+  formatLastSeen,
+} from "@/components/stations/stationConstants";
 
-const statusColors: Record<string, string> = {
-  offline: "bg-muted text-muted-foreground border-muted",
-  online:
-    "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
-  charging:
-    "bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30",
-  faulted: "bg-destructive/20 text-destructive border-destructive/30",
-  unavailable:
-    "bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30",
-  available:
-    "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
-};
-
-const statusLabels: Record<string, string> = {
-  offline: "Offline",
-  online: "Online",
-  charging: "Carregando",
-  faulted: "Falha",
-  unavailable: "Indisponível",
-  available: "Disponível",
-};
-
-function formatLastSeen(value: string | null): string {
-  if (!value) return "—";
-  const d = new Date(value);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "Agora";
-  if (diffMin < 60) return `${diffMin} min atrás`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `${diffH}h atrás`;
-  return d.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatDateTime(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function DetailItem({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: React.ReactNode;
+  mono?: boolean;
+}) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <div className={mono ? "font-mono text-sm" : "text-sm"}>{value}</div>
+    </div>
+  );
 }
 
 export default function StationDetailsPage() {
@@ -77,9 +50,16 @@ export default function StationDetailsPage() {
       .channel(`station-details-station-${stationId}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "stations", filter: `id=eq.${stationId}` },
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "stations",
+          filter: `id=eq.${stationId}`,
+        },
         () => {
-          void queryClient.invalidateQueries({ queryKey: ["station-details", stationId] });
+          void queryClient.invalidateQueries({
+            queryKey: ["station-details", stationId],
+          });
         }
       )
       .subscribe();
@@ -88,9 +68,16 @@ export default function StationDetailsPage() {
       .channel(`station-details-connectors-${stationId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "connectors", filter: `station_id=eq.${stationId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "connectors",
+          filter: `station_id=eq.${stationId}`,
+        },
         () => {
-          void queryClient.invalidateQueries({ queryKey: ["station-details", stationId] });
+          void queryClient.invalidateQueries({
+            queryKey: ["station-details", stationId],
+          });
         }
       )
       .subscribe();
@@ -99,9 +86,16 @@ export default function StationDetailsPage() {
       .channel(`station-details-transactions-${stationId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "transactions", filter: `station_id=eq.${stationId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "transactions",
+          filter: `station_id=eq.${stationId}`,
+        },
         () => {
-          void queryClient.invalidateQueries({ queryKey: ["station-details", stationId] });
+          void queryClient.invalidateQueries({
+            queryKey: ["station-details", stationId],
+          });
         }
       )
       .subscribe();
@@ -113,11 +107,12 @@ export default function StationDetailsPage() {
     };
   }, [stationId, queryClient]);
 
+  const handleBack = () => navigate("/dashboard");
+
   if (!stationId) {
     return (
       <div className="space-y-4 animate-fade-in">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/stations")}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
+        <Button variant="ghost" onClick={handleBack}>
           Voltar para dashboard
         </Button>
         <Card>
@@ -132,8 +127,7 @@ export default function StationDetailsPage() {
   if (isLoading) {
     return (
       <div className="space-y-4 animate-fade-in">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/stations")}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
+        <Button variant="ghost" onClick={handleBack}>
           Voltar para dashboard
         </Button>
         <Card>
@@ -148,8 +142,7 @@ export default function StationDetailsPage() {
   if (error || !station) {
     return (
       <div className="space-y-4 animate-fade-in">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/stations")}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
+        <Button variant="ghost" onClick={handleBack}>
           Voltar para dashboard
         </Button>
         <Card>
@@ -161,27 +154,22 @@ export default function StationDetailsPage() {
     );
   }
 
+  const sessionRows = station.recent_sessions.map((s) => ({
+    transactionId: s.transaction_id,
+    connectorId: s.connector_id,
+    startTime: s.start_time,
+    stopTime: s.stop_time,
+    energyKwh: s.energy_kwh,
+  }));
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/stations")}>
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-xl sm:text-2xl font-display font-bold flex items-center gap-2">
-            <Zap className="w-6 h-6 text-primary" />
-            {station.name}
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1 font-mono">
-            {station.charge_point_id}
-          </p>
-        </div>
-        <Button variant="outline" onClick={() => navigate("/dashboard/stations")}>
-          Voltar para dashboard
-        </Button>
-      </div>
+      <StationHeader
+        name={station.name}
+        chargePointId={station.charge_point_id}
+      />
 
-      {/* Seção 1 — Informações da Estação */}
+      {/* Bloco 1 — Informações da Estação */}
       <Card className="border-border">
         <CardHeader>
           <CardTitle>Informações da Estação</CardTitle>
@@ -203,7 +191,10 @@ export default function StationDetailsPage() {
                 </Badge>
               }
             />
-            <DetailItem label="Última comunicação" value={formatLastSeen(station.last_seen)} />
+            <DetailItem
+              label="Última comunicação"
+              value={formatLastSeen(station.last_seen)}
+            />
             <DetailItem label="Total de sessões" value={String(station.total_sessions)} />
             <DetailItem
               label="Energia total fornecida"
@@ -213,7 +204,7 @@ export default function StationDetailsPage() {
         </CardContent>
       </Card>
 
-      {/* Seção 2 — Conectores */}
+      {/* Bloco 2 — Conectores */}
       <Card className="border-border">
         <CardHeader>
           <CardTitle>Conectores</CardTitle>
@@ -226,99 +217,29 @@ export default function StationDetailsPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {station.connectors.map((conn) => (
-                <div
+                <ConnectorCard
                   key={conn.connector_id}
-                  className="rounded-lg border border-border bg-muted/30 p-4"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="font-semibold">Connector {conn.connector_id}</span>
-                    <Badge
-                      variant="outline"
-                      className={
-                        conn.status === "charging"
-                          ? statusColors.charging
-                          : conn.status === "available"
-                            ? statusColors.available
-                            : statusColors[conn.status] ?? "bg-muted"
-                      }
-                    >
-                      {conn.status}
-                    </Badge>
-                  </div>
-                  <div className="space-y-1 text-sm">
-                    <p>
-                      <span className="text-muted-foreground">Potência: </span>
-                      {conn.power_kw > 0 ? `${conn.power_kw} kW` : "—"}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">Energia: </span>
-                      {conn.energy_kwh > 0 ? `${conn.energy_kwh.toFixed(2)} kWh` : "—"}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">Sessão ativa: </span>
-                      {conn.current_transaction_id ? "Sim" : "Não"}
-                    </p>
-                  </div>
-                </div>
+                  connectorId={conn.connector_id}
+                  status={conn.status}
+                  powerKw={conn.power_kw}
+                  energyKwh={conn.energy_kwh}
+                  hasActiveSession={!!conn.current_transaction_id}
+                />
               ))}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Seção 3 — Sessões Recentes */}
+      {/* Bloco 3 — Sessões Recentes */}
       <Card className="border-border">
         <CardHeader>
           <CardTitle>Sessões Recentes</CardTitle>
         </CardHeader>
         <CardContent>
-          {station.transactions.length === 0 ? (
-            <p className="text-muted-foreground text-sm py-4">
-              Nenhuma sessão registrada.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-2 font-medium">Início</th>
-                    <th className="text-left py-2 font-medium">Fim</th>
-                    <th className="text-left py-2 font-medium">Energia</th>
-                    <th className="text-left py-2 font-medium">Connector</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {station.transactions.map((tx) => (
-                    <tr key={tx.id} className="border-b border-border/50">
-                      <td className="py-2">{formatDateTime(tx.start_time)}</td>
-                      <td className="py-2">{formatDateTime(tx.end_time)}</td>
-                      <td className="py-2">{tx.energy_kwh.toFixed(2)} kWh</td>
-                      <td className="py-2">{tx.connector_id}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <SessionTable sessions={sessionRows} />
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-function DetailItem({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: React.ReactNode;
-  mono?: boolean;
-}) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground mb-1">{label}</p>
-      <div className={mono ? "font-mono text-sm" : "text-sm"}>{value}</div>
     </div>
   );
 }

@@ -128,12 +128,12 @@ export interface StationDetails {
     power_kw: number;
     current_transaction_id: number | null;
   }>;
-  transactions: Array<{
-    id: string;
-    start_time: string;
-    end_time: string | null;
-    energy_kwh: number;
+  recent_sessions: Array<{
+    transaction_id: string | number;
     connector_id: number;
+    start_time: string;
+    stop_time: string | null;
+    energy_kwh: number;
   }>;
 }
 
@@ -170,17 +170,17 @@ export async function getStationDetails(stationId: string): Promise<StationDetai
 
   const { data: txData } = await supabase
     .from("transactions")
-    .select("id, start_time, end_time, energy_kwh, connector_id")
+    .select("ocpp_transaction_id, start_time, end_time, energy_kwh, connector_id")
     .eq("station_id", id)
     .order("start_time", { ascending: false })
     .limit(10);
 
-  const transactions = ((txData ?? []) as Array<Record<string, unknown>>).map((t) => ({
-    id: String(t.id),
-    start_time: String(t.start_time ?? ""),
-    end_time: t.end_time ? String(t.end_time) : null,
-    energy_kwh: Number(t.energy_kwh) ?? 0,
+  const recent_sessions = ((txData ?? []) as Array<Record<string, unknown>>).map((t) => ({
+    transaction_id: t.ocpp_transaction_id ?? t.id,
     connector_id: Number(t.connector_id),
+    start_time: String(t.start_time ?? ""),
+    stop_time: t.end_time ? String(t.end_time) : null,
+    energy_kwh: Number(t.energy_kwh) ?? 0,
   }));
 
   return {
@@ -195,7 +195,7 @@ export async function getStationDetails(stationId: string): Promise<StationDetai
     total_sessions: Number(row.total_sessions) ?? 0,
     total_kwh: Number(row.total_kwh) ?? 0,
     connectors,
-    transactions,
+    recent_sessions,
   };
 }
 

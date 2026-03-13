@@ -199,11 +199,12 @@ export async function getStationByIdWithDetails(
     power_kw: number;
     current_transaction_id: number | null;
   }>;
-  transactions?: Array<{
-    start_time: string;
-    end_time: string | null;
-    energy_kwh: number;
+  recent_sessions?: Array<{
+    transaction_id: string | number;
     connector_id: number;
+    start_time: string;
+    stop_time: string | null;
+    energy_kwh: number;
   }>;
 } | null> {
   const id = Number(stationId);
@@ -222,7 +223,7 @@ export async function getStationByIdWithDetails(
 
   const { data: txData } = await supabase
     .from("transactions")
-    .select("start_time, end_time, energy_kwh, connector_id")
+    .select("ocpp_transaction_id, start_time, end_time, energy_kwh, connector_id")
     .eq("station_id", id)
     .order("start_time", { ascending: false })
     .limit(10);
@@ -250,11 +251,12 @@ export async function getStationByIdWithDetails(
       power_kw: Number(c.power_kw) ?? 0,
       current_transaction_id: c.current_transaction_id,
     })),
-    transactions: (txData ?? []).map((t: Record<string, unknown>) => ({
-      start_time: String(t.start_time ?? ""),
-      end_time: t.end_time ? String(t.end_time) : null,
-      energy_kwh: Number(t.energy_kwh) ?? 0,
+    recent_sessions: (txData ?? []).map((t: Record<string, unknown>) => ({
+      transaction_id: t.ocpp_transaction_id ?? t.id,
       connector_id: Number(t.connector_id),
+      start_time: String(t.start_time ?? ""),
+      stop_time: t.end_time ? String(t.end_time) : null,
+      energy_kwh: Number(t.energy_kwh) ?? 0,
     })),
   };
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanies } from "@/hooks/useSupabaseData";
@@ -82,7 +82,6 @@ function formatLastSeen(value: string | null): string {
 }
 
 export default function StationsPage() {
-  const navigate = useNavigate();
   const { user, selectedCompanyId } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -250,10 +249,6 @@ export default function StationsPage() {
         variant: "destructive",
       });
     }
-  };
-
-  const handleRowClick = (station: Station) => {
-    navigate(`/dashboard/station/${station.id}`);
   };
 
   return (
@@ -431,10 +426,9 @@ export default function StationsPage() {
           </Card>
         ) : (
           stations.map((station) => (
+            <Link key={station.id} to={`/dashboard/station/${station.id}`}>
             <Card
-              key={station.id}
               className="border-border cursor-pointer transition-colors hover:border-primary/50"
-              onClick={() => handleRowClick(station)}
             >
               <CardContent className="p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -500,6 +494,7 @@ export default function StationsPage() {
                 </div>
               </CardContent>
             </Card>
+            </Link>
           ))
         )}
       </div>
