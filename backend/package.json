@@ -10,7 +10,8 @@
     "dev": "ts-node -r dotenv/config src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test:charger": "node test-charger.js"
+    "test:charger": "node test-charger.js",
+    "simulate:charger": "node scripts/test_charger.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",
