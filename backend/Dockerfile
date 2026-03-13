@@ -5,12 +5,13 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 COPY package.json ./
+
 RUN pnpm install
 
 COPY . .
 
 RUN pnpm run build
 
-EXPOSE 3000
+EXPOSE 8080
 
 CMD ["pnpm", "start"]

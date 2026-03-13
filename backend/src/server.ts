@@ -26,7 +26,7 @@ process.on("unhandledRejection", (reason, promise) => {
 });
 
 // ========== Validação de variáveis de ambiente ==========
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 8080;
 
 if (!isSupabaseConfigured()) {
   console.warn(
