@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { getRedirectPath } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
-import { registerUser } from "@/services/auth";
 import { Button } from "@/components/ui/button";
 import { RegistrationSuccessModal } from "@/components/RegistrationSuccessModal";
 import { Input } from "@/components/ui/input";
@@ -17,6 +16,7 @@ import {
 } from "@/lib/validateCnpj";
 import { formatPhoneNational, getPhoneDigits, validatePhoneBR } from "@/lib/formatPhone";
 
+const SIGNUP_TIMEOUT_MS = 25000;
 
 type AccountType = "user" | "company";
 
@@ -112,34 +112,6 @@ export default function Register() {
           : null;
       const cnpjDigits = accountType === "company" ? stripCnpj(cnpj) : null;
 
-<<<<<<< HEAD
-      await registerUser({
-        email: trimmedEmail,
-        password,
-        name: displayName,
-        accountType,
-        phone: phoneValue,
-        companyName: accountType === "company" ? trimmedCompany : null,
-        cnpj: cnpjDigits,
-      });
-
-      // Auto-login após cadastro via Edge Function (quando confirmação de email não é obrigatória)
-      const { data: signInData } = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password,
-      });
-
-      const hasSession = !!signInData?.session;
-
-      // Usuário criado via Edge Function; para empresa: se tiver sessão, vincular company via RPC.
-      if (hasSession && accountType === "company") {
-        const { error: rpcError } = await supabase.rpc("create_company_for_signup", {
-          p_company_name: trimmedCompany,
-          p_cnpj: cnpjDigits,
-          p_user_email: trimmedEmail,
-          p_user_name: displayName,
-          p_phone: phoneValue,
-=======
       let success = false;
 
       const invokePromise = supabase.functions.invoke<{ success: boolean; error?: { code?: string; message?: string } }>("create-user", {
@@ -184,7 +156,12 @@ export default function Register() {
         }
       }
 
-      if (!success) {
+      if (success) {
+        await supabase.auth.signInWithPassword({
+          email: trimmedEmail,
+          password,
+        });
+      } else {
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email: trimmedEmail,
           password,
@@ -195,7 +172,6 @@ export default function Register() {
               phone: phoneValue ?? undefined,
             },
           },
->>>>>>> dev
         });
 
         if (signUpError) {
@@ -214,22 +190,6 @@ export default function Register() {
           return;
         }
 
-<<<<<<< HEAD
-      // Sem sessão (confirmação de email ativa): para empresa, guardar dados para completar no login.
-      if (!hasSession && accountType === "company") {
-        try {
-          localStorage.setItem(
-            `${PENDING_COMPANY_KEY}_${trimmedEmail}`,
-            JSON.stringify({
-              companyName: trimmedCompany,
-              cnpj: cnpjDigits,
-              userName: displayName,
-              phone: phoneValue,
-            })
-          );
-        } catch {
-          /* ignore localStorage */
-=======
         if (!authData?.user) {
           setRegistrationSuccessPending(false);
           registrationSuccessPendingRef.current = false;
@@ -262,7 +222,6 @@ export default function Register() {
           } catch {
             /* ignore */
           }
->>>>>>> dev
         }
       }
 
