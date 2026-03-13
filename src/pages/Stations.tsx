@@ -122,7 +122,7 @@ export default function StationsPage() {
   });
 
   useEffect(() => {
-    const channel = supabase
+    const channelStations = supabase
       .channel("station_status_updated")
       .on(
         "postgres_changes",
@@ -158,8 +158,42 @@ export default function StationsPage() {
       )
       .subscribe();
 
+    const channelConnectors = supabase
+      .channel("connector_status_updated")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "connectors" },
+        (payload) => {
+          const row = payload.new as Record<string, unknown>;
+          const stationId = String(row.station_id);
+          const connector = {
+            connector_id: Number(row.connector_id),
+            status: String(row.status ?? "available"),
+            energy_kwh: Number(row.energy_kwh) ?? 0,
+            power_kw: Number(row.power_kw) ?? 0,
+            current_transaction_id: row.current_transaction_id as number | null | undefined,
+          };
+          queryClient.setQueriesData({ queryKey: ["stations-module"] }, (prev: unknown) => {
+            if (!Array.isArray(prev)) return prev;
+            const idx = prev.findIndex((s: Station) => String(s.id) === stationId);
+            if (idx === -1) return prev;
+            const next = [...prev];
+            const st = next[idx] as Station;
+            const conns = [...(st.connectors ?? [])];
+            const ci = conns.findIndex((c) => c.connector_id === connector.connector_id);
+            if (ci >= 0) conns[ci] = connector;
+            else conns.push(connector);
+            conns.sort((a, b) => a.connector_id - b.connector_id);
+            next[idx] = { ...st, connectors: conns };
+            return next;
+          });
+        }
+      )
+      .subscribe();
+
     return () => {
-      channel.unsubscribe();
+      channelStations.unsubscribe();
+      channelConnectors.unsubscribe();
     };
   }, [queryClient]);
 
@@ -219,9 +253,7 @@ export default function StationsPage() {
   };
 
   const handleRowClick = (station: Station) => {
-    if (station.charge_point_id) {
-      navigate(`/dashboard/stations/${station.charge_point_id}`);
-    }
+    navigate(`/dashboard/station/${station.id}`);
   };
 
   return (
@@ -384,75 +416,93 @@ export default function StationsPage() {
         )}
       </div>
 
-      <Card className="border-border bg-card overflow-hidden">
-        <CardContent className="p-0 overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border hover:bg-transparent">
-                <TableHead>Nome</TableHead>
-                <TableHead>Charge Point ID</TableHead>
-                <TableHead>Fabricante</TableHead>
-                <TableHead>Modelo</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Último contato</TableHead>
-                <TableHead className="text-right">Sessões</TableHead>
-                <TableHead className="text-right">Energia (kWh)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                    Carregando...
-                  </TableCell>
-                </TableRow>
-              ) : stations.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                    Nenhuma estação cadastrada. Adicione uma estação para começar.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                stations.map((station) => (
-                  <TableRow
-                    key={station.id}
-                    className="border-border cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => handleRowClick(station)}
-                  >
-                    <TableCell className="font-medium">{station.name}</TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {station.charge_point_id || "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {station.charge_point_vendor || "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {station.charge_point_model || "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={statusColors[station.status] ?? statusColors.offline}
-                      >
-                        {statusLabels[station.status] ?? station.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+      <div className="grid gap-4">
+        {isLoading ? (
+          <Card className="border-border">
+            <CardContent className="py-12 text-center text-muted-foreground">
+              Carregando...
+            </CardContent>
+          </Card>
+        ) : stations.length === 0 ? (
+          <Card className="border-border">
+            <CardContent className="py-12 text-center text-muted-foreground">
+              Nenhuma estação cadastrada. Adicione uma estação para começar.
+            </CardContent>
+          </Card>
+        ) : (
+          stations.map((station) => (
+            <Card
+              key={station.id}
+              className="border-border cursor-pointer transition-colors hover:border-primary/50"
+              onClick={() => handleRowClick(station)}
+            >
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">{station.name}</h3>
+                    <p className="text-sm text-muted-foreground font-mono">
+                      {station.charge_point_id}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {station.charge_point_vendor || "—"} / {station.charge_point_model || "—"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={statusColors[station.status] ?? statusColors.offline}
+                    >
+                      {statusLabels[station.status] ?? station.status}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
                       {formatLastSeen(station.last_seen)}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {station.total_sessions}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {Number(station.total_kwh).toFixed(1)}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                    </span>
+                  </div>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {(station.connectors ?? []).map((conn) => (
+                    <div
+                      key={conn.connector_id}
+                      className="rounded-lg border border-border bg-muted/30 p-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">
+                          Conector {conn.connector_id}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={
+                            conn.status === "charging"
+                              ? statusColors.charging
+                              : conn.status === "available"
+                                ? "bg-emerald-500/20 text-emerald-600 border-emerald-500/30"
+                                : "bg-muted text-muted-foreground"
+                          }
+                        >
+                          {conn.status}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                        <p>Energia: {conn.energy_kwh.toFixed(2)} kWh</p>
+                        {conn.power_kw > 0 && (
+                          <p>Potência: {conn.power_kw} kW</p>
+                        )}
+                        {conn.current_transaction_id && (
+                          <p>Sessão ativa</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 pt-3 border-t border-border flex gap-4 text-sm text-muted-foreground">
+                  <span>{station.total_sessions} sessões</span>
+                  <span>{Number(station.total_kwh).toFixed(1)} kWh total</span>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
     </div>
   );
 }

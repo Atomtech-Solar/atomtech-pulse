@@ -69,6 +69,35 @@ export async function listStations(companyId?: number | null): Promise<Station[]
   const rows = (data ?? []) as Record<string, unknown>[];
   const stations: Station[] = rows.map((row) => mapRowToStation(row));
 
+  const stationIds = stations.map((s) => Number(s.id));
+  let connectorsData: unknown[] = [];
+  if (stationIds.length > 0) {
+    const { data: cd } = await supabase
+      .from("connectors")
+      .select("station_id, connector_id, status, energy_kwh, power_kw, current_transaction_id")
+      .in("station_id", stationIds)
+      .order("connector_id");
+    connectorsData = cd ?? [];
+  }
+
+  const connectorsByStation = new Map<number, Station["connectors"]>();
+  for (const c of connectorsData as Array<Record<string, unknown>>) {
+    const sid = Number(c.station_id);
+    const list = connectorsByStation.get(sid) ?? [];
+    list.push({
+      connector_id: Number(c.connector_id),
+      status: String(c.status ?? "available"),
+      energy_kwh: Number(c.energy_kwh) ?? 0,
+      power_kw: Number(c.power_kw) ?? 0,
+      current_transaction_id: c.current_transaction_id as number | null | undefined,
+    });
+    connectorsByStation.set(sid, list);
+  }
+
+  stations.forEach((s) => {
+    s.connectors = connectorsByStation.get(Number(s.id)) ?? [];
+  });
+
   // Ordenar: online/charging primeiro, depois offline
   stations.sort((a, b) => {
     const orderA = STATUS_ORDER[a.status] ?? 99;
@@ -78,6 +107,96 @@ export async function listStations(companyId?: number | null): Promise<Station[]
   });
 
   return stations;
+}
+
+/** Detalhes da estação para página de monitoramento */
+export interface StationDetails {
+  station_id: string;
+  charge_point_id: string;
+  name: string;
+  vendor: string | null;
+  model: string | null;
+  firmware: string | null;
+  status: string;
+  last_seen: string | null;
+  total_sessions: number;
+  total_kwh: number;
+  connectors: Array<{
+    connector_id: number;
+    status: string;
+    energy_kwh: number;
+    power_kw: number;
+    current_transaction_id: number | null;
+  }>;
+  transactions: Array<{
+    id: string;
+    start_time: string;
+    end_time: string | null;
+    energy_kwh: number;
+    connector_id: number;
+  }>;
+}
+
+/**
+ * Busca detalhes completos de uma estação (estações + conectores + sessões recentes).
+ */
+export async function getStationDetails(stationId: string): Promise<StationDetails | null> {
+  const id = Number(stationId);
+  if (Number.isNaN(id)) return null;
+
+  const { data: stationRow, error: stationError } = await supabase
+    .from("stations")
+    .select("id, name, charge_point_id, status, last_seen, charge_point_vendor, charge_point_model, total_kwh, total_sessions")
+    .eq("id", id)
+    .single();
+
+  if (stationError || !stationRow) return null;
+
+  const row = stationRow as Record<string, unknown>;
+
+  const { data: connectorsData } = await supabase
+    .from("connectors")
+    .select("connector_id, status, energy_kwh, power_kw, current_transaction_id")
+    .eq("station_id", id)
+    .order("connector_id");
+
+  const connectors = ((connectorsData ?? []) as Array<Record<string, unknown>>).map((c) => ({
+    connector_id: Number(c.connector_id),
+    status: String(c.status ?? "available"),
+    energy_kwh: Number(c.energy_kwh) ?? 0,
+    power_kw: Number(c.power_kw) ?? 0,
+    current_transaction_id: c.current_transaction_id as number | null,
+  }));
+
+  const { data: txData } = await supabase
+    .from("transactions")
+    .select("id, start_time, end_time, energy_kwh, connector_id")
+    .eq("station_id", id)
+    .order("start_time", { ascending: false })
+    .limit(10);
+
+  const transactions = ((txData ?? []) as Array<Record<string, unknown>>).map((t) => ({
+    id: String(t.id),
+    start_time: String(t.start_time ?? ""),
+    end_time: t.end_time ? String(t.end_time) : null,
+    energy_kwh: Number(t.energy_kwh) ?? 0,
+    connector_id: Number(t.connector_id),
+  }));
+
+  return {
+    station_id: String(row.id),
+    charge_point_id: String(row.charge_point_id ?? ""),
+    name: String(row.name ?? ""),
+    vendor: row.charge_point_vendor ? String(row.charge_point_vendor) : null,
+    model: row.charge_point_model ? String(row.charge_point_model) : null,
+    firmware: null,
+    status: String(row.status ?? "offline"),
+    last_seen: row.last_seen ? String(row.last_seen) : null,
+    total_sessions: Number(row.total_sessions) ?? 0,
+    total_kwh: Number(row.total_kwh) ?? 0,
+    connectors,
+    transactions,
+  };
 }
 
 const PG_UNIQUE_VIOLATION = "23505";

@@ -1,5 +1,6 @@
 import { getSupabase } from "../database/supabaseClient";
 import { addStationKwh } from "./stationService";
+import { updateConnectorEnergy } from "./connectorService";
 
 export interface TransactionRow {
   id: string;
@@ -51,11 +52,11 @@ export async function createTransaction(
 export async function stopTransaction(
   ocppTransactionId: number,
   meterStop: number
-): Promise<{ energyKwh: number; chargePointId: string } | null> {
+): Promise<{ energyKwh: number; chargePointId: string; stationId: number; connectorId: number } | null> {
   const supabase = getSupabase();
   const { data: tx, error: fetchError } = await supabase
     .from("transactions")
-    .select("id, charge_point_id, meter_start")
+    .select("id, charge_point_id, meter_start, station_id, connector_id")
     .eq("ocpp_transaction_id", ocppTransactionId)
     .eq("status", "active")
     .single();
@@ -87,23 +88,28 @@ export async function stopTransaction(
     await addStationKwh(tx.charge_point_id as string, energyKwh);
   }
 
-  return { energyKwh, chargePointId: tx.charge_point_id as string };
+  return {
+    energyKwh,
+    chargePointId: tx.charge_point_id as string,
+    stationId: Number(tx.station_id),
+    connectorId: Number(tx.connector_id),
+  };
 }
 
-/** Atualiza energia parcial (MeterValues durante carregamento) */
+/** Atualiza energia parcial (MeterValues durante carregamento). Retorna info para realtime. */
 export async function updateTransactionEnergy(
   ocppTransactionId: number,
   meterValue: number
-): Promise<boolean> {
+): Promise<{ stationId: number; connectorId: number; energyKwh: number } | null> {
   const supabase = getSupabase();
   const { data: tx, error: fetchError } = await supabase
     .from("transactions")
-    .select("meter_start")
+    .select("meter_start, station_id, connector_id")
     .eq("ocpp_transaction_id", ocppTransactionId)
     .eq("status", "active")
     .single();
 
-  if (fetchError || !tx) return false;
+  if (fetchError || !tx) return null;
 
   const meterStart = Number(tx.meter_start) || 0;
   const energyKwh = Math.max(0, (meterValue - meterStart) / 1000);
@@ -113,5 +119,10 @@ export async function updateTransactionEnergy(
     .update({ energy_kwh: energyKwh })
     .eq("ocpp_transaction_id", ocppTransactionId);
 
-  return !updateError;
+  if (updateError) return null;
+
+  const stationId = Number(tx.station_id);
+  const connectorId = Number(tx.connector_id);
+  await updateConnectorEnergy(stationId, connectorId, energyKwh);
+  return { stationId, connectorId, energyKwh };
 }

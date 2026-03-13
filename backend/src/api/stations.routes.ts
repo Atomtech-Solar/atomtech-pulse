@@ -1,29 +1,53 @@
 import { Router } from "express";
-import { listStations, createStation } from "../services/stationService";
+import {
+  listStationsWithConnectors,
+  createStation,
+  getStationByIdWithDetails,
+} from "../services/stationService";
 
 export const stationsRouter = Router();
 
 stationsRouter.get("/", async (_req, res) => {
   try {
-    const stations = await listStations();
+    const stations = await listStationsWithConnectors();
     res.json(
       stations.map((s) => ({
-        id: s.id,
+        station_id: s.id,
         name: s.name,
         charge_point_id: s.charge_point_id,
         status: s.status,
+        vendor: s.charge_point_vendor ?? null,
+        model: s.charge_point_model ?? null,
         last_seen: s.last_seen,
-        charge_point_vendor: s.charge_point_vendor ?? null,
-        charge_point_model: s.charge_point_model ?? null,
         city: s.city,
         uf: s.uf,
         total_kwh: s.total_kwh,
         total_sessions: s.total_sessions,
+        connectors: s.connectors.map((c) => ({
+          connector_id: c.connector_id,
+          status: c.status,
+          energy_kwh: c.energy_kwh,
+          power_kw: c.power_kw,
+        })),
       }))
     );
   } catch (err) {
     console.error("[API] Erro ao listar estações:", err);
     res.status(500).json({ error: "Erro ao listar estações" });
+  }
+});
+
+stationsRouter.get("/:station_id", async (req, res) => {
+  try {
+    const { station_id } = req.params;
+    const station = await getStationByIdWithDetails(station_id);
+    if (!station) {
+      return res.status(404).json({ error: "Estação não encontrada" });
+    }
+    res.json(station);
+  } catch (err) {
+    console.error("[API] Erro ao buscar estação:", err);
+    res.status(500).json({ error: "Erro ao buscar estação" });
   }
 });
 

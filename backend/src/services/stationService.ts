@@ -1,4 +1,5 @@
 import { getSupabase } from "../database/supabaseClient";
+import { listConnectorsByStation } from "./connectorService";
 
 export const VALID_STATUSES = [
   "offline",
@@ -168,12 +169,125 @@ export async function addStationKwh(
   return !error;
 }
 
-/** Lista todas as estações (para GET /stations) */
+export interface StationWithConnectors extends StationRow {
+  connectors: Array<{
+    connector_id: number;
+    status: string;
+    energy_kwh: number;
+    power_kw: number;
+    current_transaction_id: number | null;
+  }>;
+}
+
+/** Busca estação por ID com conectores e últimas transações (GET /stations/:station_id) */
+export async function getStationByIdWithDetails(
+  stationId: string | number
+): Promise<{
+  station_id: string | number;
+  charge_point_id: string;
+  vendor: string | null;
+  model: string | null;
+  firmware: string | null;
+  status: string;
+  last_seen: string | null;
+  total_sessions: number;
+  total_kwh: number;
+  connectors: Array<{
+    connector_id: number;
+    status: string;
+    energy_kwh: number;
+    power_kw: number;
+    current_transaction_id: number | null;
+  }>;
+  transactions?: Array<{
+    start_time: string;
+    end_time: string | null;
+    energy_kwh: number;
+    connector_id: number;
+  }>;
+} | null> {
+  const id = Number(stationId);
+  if (Number.isNaN(id)) return null;
+
+  const supabase = getSupabase();
+  const { data: station, error: stationError } = await supabase
+    .from("stations")
+    .select("id, charge_point_id, charge_point_vendor, charge_point_model, status, last_seen, total_kwh, total_sessions")
+    .eq("id", id)
+    .single();
+
+  if (stationError || !station) return null;
+
+  const connectors = await listConnectorsByStation(id);
+
+  const { data: txData } = await supabase
+    .from("transactions")
+    .select("start_time, end_time, energy_kwh, connector_id")
+    .eq("station_id", id)
+    .order("start_time", { ascending: false })
+    .limit(10);
+
+  return {
+    station_id: (station as Record<string, unknown>).id,
+    charge_point_id: String((station as Record<string, unknown>).charge_point_id ?? ""),
+    vendor: (station as Record<string, unknown>).charge_point_vendor
+      ? String((station as Record<string, unknown>).charge_point_vendor)
+      : null,
+    model: (station as Record<string, unknown>).charge_point_model
+      ? String((station as Record<string, unknown>).charge_point_model)
+      : null,
+    firmware: null,
+    status: String((station as Record<string, unknown>).status ?? "offline"),
+    last_seen: (station as Record<string, unknown>).last_seen
+      ? String((station as Record<string, unknown>).last_seen)
+      : null,
+    total_sessions: Number((station as Record<string, unknown>).total_sessions) ?? 0,
+    total_kwh: Number((station as Record<string, unknown>).total_kwh) ?? 0,
+    connectors: connectors.map((c) => ({
+      connector_id: c.connector_id,
+      status: c.status,
+      energy_kwh: Number(c.energy_kwh) ?? 0,
+      power_kw: Number(c.power_kw) ?? 0,
+      current_transaction_id: c.current_transaction_id,
+    })),
+    transactions: (txData ?? []).map((t: Record<string, unknown>) => ({
+      start_time: String(t.start_time ?? ""),
+      end_time: t.end_time ? String(t.end_time) : null,
+      energy_kwh: Number(t.energy_kwh) ?? 0,
+      connector_id: Number(t.connector_id),
+    })),
+  };
+}
+
+/** Lista todas as estações com conectores (para GET /stations) */
+export async function listStationsWithConnectors(): Promise<StationWithConnectors[]> {
+  const stations = await listStations();
+  const result: StationWithConnectors[] = [];
+
+  for (const s of stations) {
+    const connectors = await listConnectorsByStation(Number(s.id));
+    result.push({
+      ...s,
+      connectors: connectors.map((c) => ({
+        connector_id: c.connector_id,
+        status: c.status,
+        energy_kwh: Number(c.energy_kwh) ?? 0,
+        power_kw: Number(c.power_kw) ?? 0,
+        current_transaction_id: c.current_transaction_id,
+      })),
+    });
+  }
+
+  return result;
+}
+
+/** Lista todas as estações (sem conectores) */
 export async function listStations(): Promise<StationRow[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("stations")
     .select("id, name, charge_point_id, company_id, status, last_seen, charge_point_vendor, charge_point_model, city, uf, total_kwh, total_sessions, created_at")
+    .not("charge_point_id", "is", null)
     .order("name");
 
   if (error) throw error;

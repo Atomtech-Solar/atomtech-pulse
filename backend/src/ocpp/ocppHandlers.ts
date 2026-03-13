@@ -11,6 +11,11 @@ import {
   stopTransaction,
   updateTransactionEnergy,
 } from "../services/transactionService";
+import {
+  ensureConnectorsForStation,
+  updateConnectorStatus,
+  setConnectorTransaction,
+} from "../services/connectorService";
 
 interface OcppMessage {
   messageTypeId: number;
@@ -138,6 +143,7 @@ async function handleBootNotification(
   const station = await findStationByChargePointId(chargePointId);
   if (station) {
     await updateStationBootInfo(chargePointId, vendor, model);
+    await ensureConnectorsForStation(Number(station.id), 2);
   } else {
     console.warn(`[OCPP] Estação não cadastrada: ${chargePointId}`);
   }
@@ -186,12 +192,26 @@ async function handleStatusNotification(
   uniqueId: string,
   payload: unknown
 ) {
-  const p = payload as { status?: string } | undefined;
+  const p = payload as { connectorId?: number; status?: string } | undefined;
+  const connectorId = p?.connectorId ?? 0;
   const status = p?.status ?? "Available";
+
+  const statusMap: Record<string, string> = {
+    Available: "available",
+    Preparing: "preparing",
+    Charging: "charging",
+    SuspendedEV: "charging",
+    SuspendedEVSE: "charging",
+    Finishing: "finishing",
+    Reserved: "reserved",
+    Unavailable: "unavailable",
+    Faulted: "faulted",
+  };
+  const dbStatus = statusMap[status] ?? "available";
 
   const station = await findStationByChargePointId(chargePointId);
   if (station) {
-    const statusMap: Record<string, string> = {
+    const stationStatusMap: Record<string, string> = {
       Available: "online",
       Preparing: "online",
       Charging: "charging",
@@ -202,9 +222,18 @@ async function handleStatusNotification(
       Unavailable: "unavailable",
       Faulted: "faulted",
     };
-    const dbStatus = statusMap[status] ?? "offline";
-    await updateStationStatus(chargePointId, dbStatus);
-    realtimeEmitter("status_notification", { chargePointId, status: dbStatus });
+    const stationStatus = stationStatusMap[status] ?? "offline";
+    await updateStationStatus(chargePointId, stationStatus);
+    if (connectorId >= 1) {
+      await updateConnectorStatus(Number(station.id), connectorId, dbStatus);
+      realtimeEmitter("connector_update", {
+        chargePointId,
+        stationId: station.id,
+        connectorId,
+        status: dbStatus,
+      });
+    }
+    realtimeEmitter("status_notification", { chargePointId, status: stationStatus });
   } else {
     console.warn(`[OCPP] Estação não cadastrada: ${chargePointId}`);
   }
@@ -234,6 +263,13 @@ async function handleStartTransaction(
     );
     if (tx) {
       await incrementStationSessions(chargePointId);
+      await setConnectorTransaction(Number(station.id), connectorId, ocppTransactionId);
+      realtimeEmitter("connector_update", {
+        chargePointId,
+        stationId: station.id,
+        connectorId,
+        current_transaction_id: ocppTransactionId,
+      });
     }
   } else {
     console.warn(`[OCPP] Estação não cadastrada: ${chargePointId}`);
@@ -264,6 +300,14 @@ async function handleStopTransaction(
     const result = await stopTransaction(ocppTransactionId, meterStop);
     if (result) {
       energyKwh = result.energyKwh;
+      await setConnectorTransaction(result.stationId, result.connectorId, null);
+      realtimeEmitter("connector_update", {
+        chargePointId,
+        stationId: result.stationId,
+        connectorId: result.connectorId,
+        current_transaction_id: null,
+        energy_kwh: energyKwh,
+      });
       console.log(
         `[OCPP] Sessão finalizada: ${chargePointId} | txId=${ocppTransactionId} | energia=${energyKwh.toFixed(2)} kWh`
       );
@@ -305,7 +349,15 @@ async function handleMeterValues(
 
   if (ocppTransactionId != null && sampledValue) {
     const value = parseFloat(sampledValue.value) || 0;
-    await updateTransactionEnergy(ocppTransactionId, value);
+    const result = await updateTransactionEnergy(ocppTransactionId, value);
+    if (result && station) {
+      realtimeEmitter("connector_update", {
+        chargePointId,
+        stationId: result.stationId,
+        connectorId: result.connectorId,
+        energy_kwh: result.energyKwh,
+      });
+    }
   }
 
   sendCallResult(ws, uniqueId, {});

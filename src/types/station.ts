@@ -1,6 +1,15 @@
 /** Status possíveis da estação OCPP (atualizado automaticamente pelo backend) */
 export type StationStatus = "offline" | "online" | "charging" | "faulted" | "unavailable";
 
+/** Conector (boca) de carregamento OCPP */
+export interface Connector {
+  connector_id: number;
+  status: string;
+  energy_kwh: number;
+  power_kw: number;
+  current_transaction_id?: number | null;
+}
+
 /** Estação de carregamento OCPP - estrutura da tabela stations no Supabase */
 export interface Station {
   id: string;
@@ -16,4 +25,5 @@ export interface Station {
   total_kwh: number;
   total_sessions: number;
   created_at: string;
+  connectors?: Connector[];
 }
