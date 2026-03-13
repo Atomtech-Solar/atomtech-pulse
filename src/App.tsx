@@ -21,6 +21,7 @@ import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import Overview from "@/pages/Overview";
 import Sessions from "@/pages/Sessions";
 import Stations from "@/pages/Stations";
+import StationDetail from "@/pages/StationDetail";
 import UsersPage from "@/pages/Users";
 import Analytics from "@/pages/Analytics";
 import Push from "@/pages/Push";
@@ -89,6 +90,7 @@ const App = () => {
                 <Route index element={<Overview />} />
                 <Route path="sessions" element={<Sessions />} />
                 <Route path="stations" element={<Stations />} />
+                <Route path="stations/:chargePointId" element={<StationDetail />} />
                 <Route path="users" element={<UsersPage />} />
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="push" element={<Push />} />

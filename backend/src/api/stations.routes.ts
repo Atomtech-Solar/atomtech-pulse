@@ -29,7 +29,7 @@ stationsRouter.get("/", async (_req, res) => {
 
 stationsRouter.post("/", async (req, res) => {
   try {
-    const { company_id, name, charge_point_id, city, uf, lat, lng } = req.body;
+    const { company_id, name, charge_point_id, city, uf, lat, lng, charge_point_vendor, charge_point_model } = req.body;
 
     if (!company_id || !name || !charge_point_id) {
       return res.status(400).json({
@@ -45,6 +45,8 @@ stationsRouter.post("/", async (req, res) => {
       uf: uf ? String(uf).trim().toUpperCase().slice(0, 2) : null,
       lat: lat != null ? Number(lat) : null,
       lng: lng != null ? Number(lng) : null,
+      charge_point_vendor: charge_point_vendor ? String(charge_point_vendor).trim().slice(0, 50) : null,
+      charge_point_model: charge_point_model ? String(charge_point_model).trim().slice(0, 50) : null,
     });
 
     res.status(201).json(station);

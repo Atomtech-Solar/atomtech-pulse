@@ -34,6 +34,8 @@ export interface CreateStationInput {
   uf?: string | null;
   lat?: number | null;
   lng?: number | null;
+  charge_point_vendor?: string | null;
+  charge_point_model?: string | null;
 }
 
 /** Busca estação por charge_point_id (para OCPP - usa SERVICE_ROLE) */
@@ -203,6 +205,8 @@ export async function createStation(input: CreateStationInput): Promise<StationR
     uf: input.uf?.trim().toUpperCase().slice(0, 2) || null,
     lat: input.lat ?? null,
     lng: input.lng ?? null,
+    charge_point_vendor: input.charge_point_vendor?.trim() || null,
+    charge_point_model: input.charge_point_model?.trim() || null,
     status: "offline",
   };
 
