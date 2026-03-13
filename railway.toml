@@ -1,8 +1,0 @@
-# Railway config: quando Root Directory está em branco (deploy da raiz do repo)
-# Usa Dockerfile com pnpm via corepack - evita "pnpm: command not found"
-[build]
-builder = "dockerfile"
-dockerfilePath = "Dockerfile"
-
-[deploy]
-# CMD do Dockerfile é usado automaticamente
