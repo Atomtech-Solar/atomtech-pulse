@@ -34,16 +34,16 @@ export default function Overview() {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-display font-bold">Visão Geral</h1>
+        <h1 className="text-xl sm:text-2xl font-display font-bold">Visão Geral</h1>
         <p className="text-muted-foreground text-sm mt-1">
           {role === "super_admin" && !selectedCompanyId ? "Consolidado de todas as empresas" : "Resumo operacional"}
         </p>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-3 sm:gap-4">
         {kpis.map(kpi => (
           <Card key={kpi.label} className="border-border bg-card hover:glow-primary transition-shadow duration-300">
             <CardContent className="p-4">
@@ -58,7 +58,7 @@ export default function Overview() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card className="border-border bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Consumo & Receita por Dia</CardTitle>

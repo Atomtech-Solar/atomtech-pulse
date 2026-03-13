@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import {
   isSupabaseAuthError,
   dispatchSessionInvalid,
@@ -21,6 +21,7 @@ import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import Overview from "@/pages/Overview";
 import Sessions from "@/pages/Sessions";
 import Stations from "@/pages/Stations";
+import StationDetails from "@/pages/StationDetails";
 import UsersPage from "@/pages/Users";
 import Analytics from "@/pages/Analytics";
 import Push from "@/pages/Push";
@@ -69,8 +70,8 @@ const App = () => {
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <AuthInit>
-          <BrowserRouter>
+        <BrowserRouter>
+          <AuthInit>
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
@@ -89,6 +90,7 @@ const App = () => {
                 <Route index element={<Overview />} />
                 <Route path="sessions" element={<Sessions />} />
                 <Route path="stations" element={<Stations />} />
+                <Route path="station/:stationId" element={<StationDetails />} />
                 <Route path="users" element={<UsersPage />} />
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="push" element={<Push />} />
@@ -101,8 +103,8 @@ const App = () => {
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </AuthInit>
         </BrowserRouter>
-        </AuthInit>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

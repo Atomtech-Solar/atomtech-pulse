@@ -11,13 +11,13 @@ export default function UsersPage() {
   const data = evUsers;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-display font-bold">Usuários</h1>
+        <h1 className="text-xl sm:text-2xl font-display font-bold">Usuários</h1>
         <p className="text-muted-foreground text-sm mt-1">{data.length} usuários cadastrados</p>
       </div>
-      <Card className="border-border bg-card">
-        <CardContent className="p-0">
+      <Card className="border-border bg-card overflow-hidden">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">

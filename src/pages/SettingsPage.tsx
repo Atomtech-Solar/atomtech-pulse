@@ -60,13 +60,13 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-display font-bold">Configurações</h1>
+        <h1 className="text-xl sm:text-2xl font-display font-bold">Configurações</h1>
         <p className="text-muted-foreground text-sm mt-1">Preferências do sistema e equipe</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card className="border-border bg-card">
           <CardHeader><CardTitle className="text-base flex items-center gap-2"><Settings className="w-4 h-4 text-primary" /> Sistema</CardTitle></CardHeader>
           <CardContent className="space-y-4">

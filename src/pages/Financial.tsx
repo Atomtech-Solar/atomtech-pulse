@@ -11,16 +11,16 @@ export default function Financial() {
   const { data: stationRevenue = [] } = useStationRevenue();
   const totalRevenue = sessions.reduce((s, se) => s + (se.revenue ?? 0), 0);
   const taxes = totalRevenue * 0.08;
-  const opFees = filteredSessions.length * 5;
+  const opFees = sessions.length * 5;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-display font-bold">Financeiro</h1>
+        <h1 className="text-xl sm:text-2xl font-display font-bold">Financeiro</h1>
         <p className="text-muted-foreground text-sm mt-1">Visão consolidada de receitas</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         {[
           { label: 'Receita Bruta', value: `R$ ${totalRevenue.toFixed(2)}`, icon: DollarSign },
           { label: 'Impostos', value: `R$ ${taxes.toFixed(2)}`, icon: TrendingUp },
@@ -37,9 +37,9 @@ export default function Financial() {
         ))}
       </div>
 
-      <Card className="border-border bg-card">
+      <Card className="border-border bg-card overflow-hidden">
         <CardHeader><CardTitle className="text-sm text-muted-foreground">Receita por Estação</CardTitle></CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">

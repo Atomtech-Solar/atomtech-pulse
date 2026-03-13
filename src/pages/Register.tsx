@@ -17,7 +17,6 @@ import {
 } from "@/lib/validateCnpj";
 import { formatPhoneNational, getPhoneDigits, validatePhoneBR } from "@/lib/formatPhone";
 
-const PENDING_COMPANY_KEY = "pending_company_signup";
 
 type AccountType = "user" | "company";
 
@@ -113,6 +112,7 @@ export default function Register() {
           : null;
       const cnpjDigits = accountType === "company" ? stripCnpj(cnpj) : null;
 
+<<<<<<< HEAD
       await registerUser({
         email: trimmedEmail,
         password,
@@ -139,19 +139,82 @@ export default function Register() {
           p_user_email: trimmedEmail,
           p_user_name: displayName,
           p_phone: phoneValue,
-        });
-        if (rpcError) {
-          setRegistrationSuccessPending(false);
-          registrationSuccessPendingRef.current = false;
-          setError(
-            rpcError.message?.includes("does not exist")
-              ? "Função de cadastro não encontrada. Verifique as migrations do Supabase."
-              : rpcError.message ?? "Erro ao vincular empresa."
-          );
-          return;
+=======
+      let success = false;
+
+      const invokePromise = supabase.functions.invoke<{ success: boolean; error?: { code?: string; message?: string } }>("create-user", {
+        body: {
+          email: trimmedEmail,
+          password,
+          name: displayName,
+          accountType,
+          phone: phoneValue,
+          companyName: accountType === "company" ? trimmedCompany : null,
+          cnpj: cnpjDigits,
+        },
+      });
+
+      const timeoutPromise = new Promise<typeof invokePromise>((_, reject) =>
+        setTimeout(() => reject(new Error("TIMEOUT")), SIGNUP_TIMEOUT_MS)
+      );
+
+      const result = await Promise.race([invokePromise, timeoutPromise]).catch((err) => ({
+        data: null,
+        error: err?.message === "TIMEOUT" ? new Error("TIMEOUT") : err,
+      }));
+
+      if (!result.error && result.data) {
+        const res = result.data as { success?: boolean; error?: { code?: string; message?: string } };
+        if (res?.success) {
+          success = true;
+        } else {
+          const code = res?.error?.code;
+          if (code === "EMAIL_ALREADY_EXISTS") {
+            setError("Este email já está cadastrado. Faça login.");
+            setRegistrationSuccessPending(false);
+            registrationSuccessPendingRef.current = false;
+            return;
+          }
+          if (code === "INVALID_PASSWORD") {
+            setError("A senha não atende aos requisitos mínimos.");
+            setRegistrationSuccessPending(false);
+            registrationSuccessPendingRef.current = false;
+            return;
+          }
         }
       }
 
+      if (!success) {
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+          email: trimmedEmail,
+          password,
+          options: {
+            data: {
+              name: displayName,
+              company_name: accountType === "company" ? trimmedCompany : undefined,
+              phone: phoneValue ?? undefined,
+            },
+          },
+>>>>>>> dev
+        });
+
+        if (signUpError) {
+          setRegistrationSuccessPending(false);
+          registrationSuccessPendingRef.current = false;
+          if (
+            signUpError.message?.toLowerCase().includes("already registered") ||
+            signUpError.message?.toLowerCase().includes("already exists")
+          ) {
+            setError("Este email já está cadastrado. Faça login.");
+          } else if (signUpError.message?.toLowerCase().includes("rate limit")) {
+            setError("Limite de tentativas excedido. Aguarde alguns minutos.");
+          } else {
+            setError(signUpError.message ?? "Não foi possível criar a conta. Tente novamente.");
+          }
+          return;
+        }
+
+<<<<<<< HEAD
       // Sem sessão (confirmação de email ativa): para empresa, guardar dados para completar no login.
       if (!hasSession && accountType === "company") {
         try {
@@ -166,6 +229,40 @@ export default function Register() {
           );
         } catch {
           /* ignore localStorage */
+=======
+        if (!authData?.user) {
+          setRegistrationSuccessPending(false);
+          registrationSuccessPendingRef.current = false;
+          setError("Erro ao criar conta. Tente novamente.");
+          return;
+        }
+
+        if (authData.session && accountType === "company") {
+          const { error: rpcError } = await supabase.rpc("create_company_for_signup", {
+            p_company_name: trimmedCompany,
+            p_cnpj: cnpjDigits,
+            p_user_email: trimmedEmail,
+            p_user_name: displayName,
+            p_phone: phoneValue,
+          });
+          if (rpcError) {
+            setRegistrationSuccessPending(false);
+            registrationSuccessPendingRef.current = false;
+            setError(rpcError.message ?? "Erro ao vincular empresa.");
+            return;
+          }
+        }
+
+        if (!authData.session && accountType === "company") {
+          try {
+            localStorage.setItem(
+              `pending_company_signup_${trimmedEmail}`,
+              JSON.stringify({ companyName: trimmedCompany, cnpj: cnpjDigits, userName: displayName, phone: phoneValue })
+            );
+          } catch {
+            /* ignore */
+          }
+>>>>>>> dev
         }
       }
 
@@ -201,8 +298,8 @@ export default function Register() {
       <div className="absolute top-1/4 -left-32 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
       <div className="absolute bottom-1/4 -right-32 w-64 h-64 bg-accent/10 rounded-full blur-3xl" />
 
-      <div className="relative w-full max-w-[600px]">
-        <div className="w-full max-w-[600px] mt-10 mb-10 mx-0 bg-card border border-border rounded-2xl p-8 shadow-xl">
+      <div className="relative w-full max-w-[600px] px-4 sm:px-0">
+        <div className="w-full max-w-[600px] mt-10 mb-10 mx-auto bg-card border border-border rounded-2xl p-6 sm:p-8 shadow-xl">
           <div className="flex flex-col items-center mb-8">
             <div className="w-14 h-14 rounded-2xl gradient-primary flex items-center justify-center mb-4">
               <Zap className="w-7 h-7 text-primary-foreground" />

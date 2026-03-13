@@ -334,10 +334,12 @@ export type Database = {
       };
       stations: {
         Row: {
+          charge_point_id: string | null;
           city: string | null;
           company_id: number;
           created_at: string;
           id: number;
+          last_seen: string | null;
           lat: number | null;
           lng: number | null;
           name: string;
@@ -347,10 +349,12 @@ export type Database = {
           uf: string | null;
         };
         Insert: {
+          charge_point_id?: string | null;
           city?: string | null;
           company_id: number;
           created_at?: string;
           id?: number;
+          last_seen?: string | null;
           lat?: number | null;
           lng?: number | null;
           name: string;
@@ -360,10 +364,12 @@ export type Database = {
           uf?: string | null;
         };
         Update: {
+          charge_point_id?: string | null;
           city?: string | null;
           company_id?: number;
           created_at?: string;
           id?: number;
+          last_seen?: string | null;
           lat?: number | null;
           lng?: number | null;
           name?: string;

@@ -112,10 +112,10 @@ export default function LandingPageAnalytics() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-display font-bold">Landing Page Analytics</h1>
+          <h1 className="text-xl sm:text-2xl font-display font-bold">Landing Page Analytics</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Métricas e cadastros captados pela landing page
           </p>
@@ -126,71 +126,73 @@ export default function LandingPageAnalytics() {
             size="sm"
             onClick={handleExportPdf}
             disabled={exportingPdf}
+            className="w-full sm:w-auto shrink-0"
           >
-            <FileDown className="w-4 h-4 mr-2" />
-            {exportingPdf ? "Exportando…" : "Exportar PDF"}
+            <FileDown className="w-4 h-4 mr-2 shrink-0" />
+            <span className="truncate">{exportingPdf ? "Exportando…" : "Exportar PDF"}</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={handleExportExcel}
             disabled={exportingExcel}
+            className="w-full sm:w-auto shrink-0"
           >
-            <FileSpreadsheet className="w-4 h-4 mr-2" />
-            {exportingExcel ? "Exportando…" : "Exportar Excel"}
+            <FileSpreadsheet className="w-4 h-4 mr-2 shrink-0" />
+            <span className="truncate">{exportingExcel ? "Exportando…" : "Exportar Excel"}</span>
           </Button>
         </div>
       </div>
 
       {/* Métricas principais */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         <Card className="border-border bg-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <Users className="w-5 h-5 text-primary" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-primary shrink-0" />
             </div>
-            <p className="text-2xl font-display font-bold text-foreground">{metrics.total}</p>
+            <p className="text-xl sm:text-2xl font-display font-bold text-foreground">{metrics.total}</p>
             <p className="text-xs text-muted-foreground mt-1">Total de cadastros</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <UserPlus className="w-5 h-5 text-accent" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <UserPlus className="w-4 h-4 sm:w-5 sm:h-5 text-accent shrink-0" />
             </div>
-            <p className="text-2xl font-display font-bold text-foreground">{metrics.today}</p>
+            <p className="text-xl sm:text-2xl font-display font-bold text-foreground">{metrics.today}</p>
             <p className="text-xs text-muted-foreground mt-1">Hoje</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card">
-          <CardContent className="p-4">
-            <p className="text-2xl font-display font-bold text-foreground">{metrics.thisWeek}</p>
+          <CardContent className="p-3 sm:p-4">
+            <p className="text-xl sm:text-2xl font-display font-bold text-foreground">{metrics.thisWeek}</p>
             <p className="text-xs text-muted-foreground mt-1">Esta semana</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card">
-          <CardContent className="p-4">
-            <p className="text-2xl font-display font-bold text-foreground">{metrics.thisMonth}</p>
+          <CardContent className="p-3 sm:p-4">
+            <p className="text-xl sm:text-2xl font-display font-bold text-foreground">{metrics.thisMonth}</p>
             <p className="text-xs text-muted-foreground mt-1">Este mês</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <User className="w-5 h-5 text-chart-3" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <User className="w-4 h-4 sm:w-5 sm:h-5 text-chart-3 shrink-0" />
             </div>
-            <p className="text-2xl font-display font-bold text-foreground">
+            <p className="text-xl sm:text-2xl font-display font-bold text-foreground">
               {metrics.byType.pessoaFisica}
             </p>
             <p className="text-xs text-muted-foreground mt-1">Pessoa física</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <Building2 className="w-5 h-5 text-chart-4" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-chart-4 shrink-0" />
             </div>
-            <p className="text-2xl font-display font-bold text-foreground">
+            <p className="text-xl sm:text-2xl font-display font-bold text-foreground">
               {metrics.byType.empresa}
             </p>
             <p className="text-xs text-muted-foreground mt-1">Empresa</p>
@@ -199,24 +201,24 @@ export default function LandingPageAnalytics() {
       </div>
 
       {/* Listagem */}
-      <Card className="border-border bg-card">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <LayoutDashboard className="w-4 h-4" />
+      <Card className="border-border bg-card overflow-hidden">
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+            <LayoutDashboard className="w-4 h-4 shrink-0" />
             Cadastros
           </CardTitle>
-          <CardDescription className="text-sm text-muted-foreground">
+          <CardDescription className="text-xs sm:text-sm text-muted-foreground">
             Clique em um registro para ver os detalhes. Exportação considera os dados exibidos.
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead>Nome</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Data cadastro</TableHead>
+                <TableHead className="px-3 sm:px-4">Nome</TableHead>
+                <TableHead className="px-3 sm:px-4 whitespace-nowrap">Email</TableHead>
+                <TableHead className="px-3 sm:px-4">Tipo</TableHead>
+                <TableHead className="px-3 sm:px-4 whitespace-nowrap">Data cadastro</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -233,9 +235,9 @@ export default function LandingPageAnalytics() {
                     className="border-border cursor-pointer hover:bg-secondary/50"
                     onClick={() => setSelectedProfile(p)}
                   >
-                    <TableCell className="font-medium">{p.name ?? "-"}</TableCell>
-                    <TableCell className="text-muted-foreground">{p.email}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-medium px-3 sm:px-4 min-w-[80px] truncate max-w-[140px] sm:max-w-none" title={String(p.name ?? "-")}>{p.name ?? "-"}</TableCell>
+                    <TableCell className="text-muted-foreground px-3 sm:px-4 min-w-[120px] truncate max-w-[160px] sm:max-w-none" title={p.email}>{p.email}</TableCell>
+                    <TableCell className="px-3 sm:px-4 whitespace-nowrap">
                       <Badge
                         variant="outline"
                         className={
@@ -247,7 +249,7 @@ export default function LandingPageAnalytics() {
                         {getAccountType(p)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground px-3 sm:px-4 whitespace-nowrap text-xs sm:text-sm">
                       {formatDate(p.created_at)}
                     </TableCell>
                   </TableRow>
@@ -260,7 +262,7 @@ export default function LandingPageAnalytics() {
 
       {/* Sheet de detalhes */}
       <Sheet open={!!selectedProfile} onOpenChange={(open) => !open && setSelectedProfile(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-md">
+        <SheetContent side="right" className="w-[calc(100vw-2rem)] max-w-md overflow-y-auto">
           {selectedProfile && (
             <>
               <SheetHeader>
