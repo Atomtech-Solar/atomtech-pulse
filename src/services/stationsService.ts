@@ -12,6 +12,38 @@ export type CreateStationInput = {
   uf?: string | null;
   charge_point_vendor?: string | null;
   charge_point_model?: string | null;
+  connector_count?: number | null;
+  // Geral (1/4)
+  website_url?: string | null;
+  description?: string | null;
+  external_id?: string | null;
+  station_type?: string | null;
+  station_group?: string | null;
+  enable_reservation?: boolean;
+  enabled?: boolean;
+  show_charge_percentage?: boolean;
+  opening_time?: string | null;
+  closing_time?: string | null;
+  open_24h?: boolean;
+  // Endereço (2/4)
+  cep?: string | null;
+  street?: string | null;
+  address_number?: string | null;
+  country?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  show_location?: boolean;
+  // Pagamento (3/4)
+  charge_enabled?: boolean;
+  charge_type?: "kwh" | "min" | null;
+  cost_per_kwh?: number | null;
+  revenue_charge_type?: string | null;
+  revenue_per_start?: number | null;
+  revenue_tax_percent?: number | null;
+  revenue_per_kwh?: number | null;
+  // Fotos (4/4)
+  main_photo_url?: string | null;
+  photo_urls?: string[] | null;
 };
 
 const VALID_STATUSES = ["offline", "online", "charging", "faulted", "unavailable"] as const;
@@ -215,7 +247,37 @@ export async function createStation(input: CreateStationInput): Promise<Station>
     charge_point_vendor: input.charge_point_vendor?.trim().slice(0, 50) || null,
     charge_point_model: input.charge_point_model?.trim().slice(0, 50) || null,
     status: "offline",
+    website_url: input.website_url?.trim() || null,
+    description: input.description?.trim() || null,
+    external_id: input.external_id?.trim() || null,
+    station_type: input.station_type?.trim() || null,
+    station_group: input.station_group?.trim() || null,
+    enable_reservation: input.enable_reservation ?? false,
+    enabled: input.enabled ?? true,
+    show_charge_percentage: input.show_charge_percentage ?? false,
+    opening_time: input.opening_time?.trim() || null,
+    closing_time: input.closing_time?.trim() || null,
+    open_24h: input.open_24h ?? true,
+    cep: input.cep?.trim() || null,
+    street: input.street?.trim() || null,
+    address_number: input.address_number?.trim() || null,
+    country: input.country?.trim() || null,
+    lat: input.lat != null ? Number(input.lat) : null,
+    lng: input.lng != null ? Number(input.lng) : null,
+    show_location: input.show_location ?? true,
+    charge_enabled: input.charge_enabled ?? false,
+    charge_type: input.charge_type || null,
+    cost_per_kwh: input.cost_per_kwh != null ? Number(input.cost_per_kwh) : null,
+    revenue_charge_type: input.revenue_charge_type?.trim() || null,
+    revenue_per_start: input.revenue_per_start != null ? Number(input.revenue_per_start) : null,
+    revenue_tax_percent: input.revenue_tax_percent != null ? Number(input.revenue_tax_percent) : null,
+    revenue_per_kwh: input.revenue_per_kwh != null ? Number(input.revenue_per_kwh) : null,
+    main_photo_url: input.main_photo_url?.trim() || null,
+    photo_urls: input.photo_urls?.length ? input.photo_urls : null,
   };
+  if (input.connector_count != null && input.connector_count > 0) {
+    insert.connector_count = input.connector_count;
+  }
 
   const { data, error } = await supabase.from("stations").insert(insert).select().single();
   if (error) {

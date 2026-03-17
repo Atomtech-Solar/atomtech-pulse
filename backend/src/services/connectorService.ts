@@ -24,11 +24,15 @@ export interface ConnectorRow {
   updated_at: string;
 }
 
-/** Cria conectores para uma estação se não existirem (BootNotification) */
+/**
+ * Cria conectores 1..count para uma estação se nenhum existir (usado quando connector_count está definido).
+ * Não sobrescreve conectores já existentes.
+ */
 export async function ensureConnectorsForStation(
   stationId: number,
-  count: number = 2
+  count: number
 ): Promise<void> {
+  if (count < 1) return;
   const supabase = getSupabase();
   const { data: existing } = await supabase
     .from("connectors")
@@ -50,8 +54,41 @@ export async function ensureConnectorsForStation(
   await supabase.from("connectors").insert(inserts);
 }
 
-/** Cria conector se não existir (ex: StatusNotification para connectorId novo) */
-async function ensureConnectorExists(stationId: number, connectorId: number): Promise<void> {
+/**
+ * Garante que existam conectores 1..maxConnectorId para a estação.
+ * Cria apenas os que faltam (fallback dinâmico via StatusNotification).
+ * Loga "Connector detected dynamically: X" para cada conector criado.
+ */
+export async function ensureConnectorsUpTo(
+  stationId: number,
+  maxConnectorId: number
+): Promise<void> {
+  if (maxConnectorId < 1) return;
+  const supabase = getSupabase();
+  const { data: existing } = await supabase
+    .from("connectors")
+    .select("connector_id")
+    .eq("station_id", stationId);
+
+  const existingIds = new Set((existing ?? []).map((r: { connector_id: number }) => r.connector_id));
+
+  for (let id = 1; id <= maxConnectorId; id++) {
+    if (existingIds.has(id)) continue;
+    await supabase.from("connectors").insert({
+      station_id: stationId,
+      connector_id: id,
+      status: "available",
+      power_kw: 0,
+      energy_kwh: 0,
+      current_transaction_id: null,
+    });
+    console.log(`[OCPP] Connector detected dynamically: ${id}`);
+    existingIds.add(id);
+  }
+}
+
+/** Cria conector se não existir (ex: StatusNotification para connectorId novo). Retorna true se criou. */
+async function ensureConnectorExists(stationId: number, connectorId: number): Promise<boolean> {
   const supabase = getSupabase();
   const { data } = await supabase
     .from("connectors")
@@ -69,7 +106,9 @@ async function ensureConnectorExists(stationId: number, connectorId: number): Pr
       energy_kwh: 0,
       current_transaction_id: null,
     });
+    return true;
   }
+  return false;
 }
 
 /** Atualiza status do conector (StatusNotification) */

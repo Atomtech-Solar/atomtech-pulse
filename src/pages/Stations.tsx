@@ -41,6 +41,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { Zap, Plus, Info } from "lucide-react";
 import type { Station } from "@/types/station";
 
@@ -97,7 +99,43 @@ export default function StationsPage() {
   const [uf, setUf] = useState("");
   const [vendor, setVendor] = useState("");
   const [model, setModel] = useState("");
+  const [connectorCount, setConnectorCount] = useState<string>("");
   const [formCompanyId, setFormCompanyId] = useState<number | null>(null);
+
+  // Geral (1/4)
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [externalId, setExternalId] = useState("");
+  const [stationType, setStationType] = useState("");
+  const [stationGroup, setStationGroup] = useState("");
+  const [enableReservation, setEnableReservation] = useState(false);
+  const [enabled, setEnabled] = useState(true);
+  const [showChargePercentage, setShowChargePercentage] = useState(false);
+  const [openingTime, setOpeningTime] = useState("");
+  const [closingTime, setClosingTime] = useState("");
+  const [open24h, setOpen24h] = useState(true);
+
+  // Endereço (2/4)
+  const [cep, setCep] = useState("");
+  const [street, setStreet] = useState("");
+  const [addressNumber, setAddressNumber] = useState("");
+  const [country, setCountry] = useState("Brasil");
+  const [lat, setLat] = useState("");
+  const [lng, setLng] = useState("");
+  const [showLocation, setShowLocation] = useState(true);
+
+  // Pagamento (3/4)
+  const [chargeEnabled, setChargeEnabled] = useState(false);
+  const [chargeType, setChargeType] = useState<"kwh" | "min">("kwh");
+  const [costPerKwh, setCostPerKwh] = useState("");
+  const [revenueChargeType, setRevenueChargeType] = useState("");
+  const [revenuePerStart, setRevenuePerStart] = useState("");
+  const [revenueTaxPercent, setRevenueTaxPercent] = useState("");
+  const [revenuePerKwh, setRevenuePerKwh] = useState("");
+
+  // Fotos (4/4)
+  const [mainPhotoUrl, setMainPhotoUrl] = useState("");
+  const [photoUrlsText, setPhotoUrlsText] = useState("");
 
   const { data: companies = [] } = useCompanies();
   const companyId =
@@ -238,6 +276,11 @@ export default function StationsPage() {
     }
     setChargePointIdError(null);
     try {
+      const numConnectors = connectorCount.trim() ? parseInt(connectorCount, 10) : null;
+      const photoUrls = photoUrlsText
+        .split(/\r?\n/)
+        .map((u) => u.trim())
+        .filter(Boolean);
       await createStation({
         name: name.trim(),
         charge_point_id: sanitized.id,
@@ -246,6 +289,34 @@ export default function StationsPage() {
         uf: uf.trim().toUpperCase().slice(0, 2) || null,
         charge_point_vendor: vendor.trim() || null,
         charge_point_model: model.trim() || null,
+        connector_count: numConnectors != null && numConnectors > 0 ? numConnectors : undefined,
+        website_url: websiteUrl.trim() || null,
+        description: description.trim() || null,
+        external_id: externalId.trim() || null,
+        station_type: stationType.trim() || null,
+        station_group: stationGroup.trim() || null,
+        enable_reservation: enableReservation,
+        enabled: enabled,
+        show_charge_percentage: showChargePercentage,
+        opening_time: open24h ? null : (openingTime.trim() || null),
+        closing_time: open24h ? null : (closingTime.trim() || null),
+        open_24h: open24h,
+        cep: cep.trim() || null,
+        street: street.trim() || null,
+        address_number: addressNumber.trim() || null,
+        country: country.trim() || null,
+        lat: lat.trim() ? Number(lat) : null,
+        lng: lng.trim() ? Number(lng) : null,
+        show_location: showLocation,
+        charge_enabled: chargeEnabled,
+        charge_type: chargeEnabled ? chargeType : null,
+        cost_per_kwh: chargeEnabled && costPerKwh.trim() ? Number(costPerKwh.replace(",", ".")) : null,
+        revenue_charge_type: chargeEnabled ? (revenueChargeType.trim() || null) : null,
+        revenue_per_start: chargeEnabled && revenuePerStart.trim() ? Number(revenuePerStart.replace(",", ".")) : null,
+        revenue_tax_percent: chargeEnabled && revenueTaxPercent.trim() ? Number(revenueTaxPercent.replace(",", ".")) : null,
+        revenue_per_kwh: chargeEnabled && revenuePerKwh.trim() ? Number(revenuePerKwh.replace(",", ".")) : null,
+        main_photo_url: mainPhotoUrl.trim() || null,
+        photo_urls: photoUrls.length > 0 ? photoUrls : null,
       });
       toast({ title: "Estação criada", description: name });
       setDialogOpen(false);
@@ -256,7 +327,35 @@ export default function StationsPage() {
       setUf("");
       setVendor("");
       setModel("");
+      setConnectorCount("");
       setFormCompanyId(null);
+      setWebsiteUrl("");
+      setDescription("");
+      setExternalId("");
+      setStationType("");
+      setStationGroup("");
+      setEnableReservation(false);
+      setEnabled(true);
+      setShowChargePercentage(false);
+      setOpeningTime("");
+      setClosingTime("");
+      setOpen24h(true);
+      setCep("");
+      setStreet("");
+      setAddressNumber("");
+      setCountry("Brasil");
+      setLat("");
+      setLng("");
+      setShowLocation(true);
+      setChargeEnabled(false);
+      setChargeType("kwh");
+      setCostPerKwh("");
+      setRevenueChargeType("");
+      setRevenuePerStart("");
+      setRevenueTaxPercent("");
+      setRevenuePerKwh("");
+      setMainPhotoUrl("");
+      setPhotoUrlsText("");
       void queryClient.invalidateQueries({ queryKey: ["stations-module"] });
     } catch (err) {
       if (isSupabaseAuthError(err)) {
@@ -281,150 +380,448 @@ export default function StationsPage() {
           </p>
         </div>
         {user?.role !== "viewer" && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog
+            open={dialogOpen}
+            onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) {
+                setConnectorCount("");
+                setWebsiteUrl("");
+                setDescription("");
+                setExternalId("");
+                setStationType("");
+                setStationGroup("");
+                setEnableReservation(false);
+                setEnabled(true);
+                setShowChargePercentage(false);
+                setOpeningTime("");
+                setClosingTime("");
+                setOpen24h(true);
+                setCep("");
+                setStreet("");
+                setAddressNumber("");
+                setCountry("Brasil");
+                setLat("");
+                setLng("");
+                setShowLocation(true);
+                setChargeEnabled(false);
+                setCostPerKwh("");
+                setRevenueChargeType("");
+                setRevenuePerStart("");
+                setRevenueTaxPercent("");
+                setRevenuePerKwh("");
+                setMainPhotoUrl("");
+                setPhotoUrlsText("");
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button className="gradient-primary text-primary-foreground glow-primary w-full sm:w-auto shrink-0">
                 <Plus className="w-4 h-4 mr-2" />
                 Adicionar Estação
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-h-[90vh] overflow-y-auto max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Adicionar Estação</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="rounded-lg border border-muted bg-muted/30 p-3 flex gap-2">
-                  <Info className="w-5 h-5 shrink-0 text-muted-foreground mt-0.5" />
-                  <div className="text-sm text-muted-foreground">
-                    O Charge Point ID deve ser exatamente o mesmo configurado no carregador físico OCPP.
-                    Exemplo: se o carregador usa <code className="font-mono bg-muted px-1 rounded">CP001</code>,
-                    a conexão será feita em{" "}
-                    <code className="font-mono bg-muted px-1 rounded text-xs">wss://backend/ocpp/CP001</code>.
+              <Tabs defaultValue="geral" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="geral" className="text-xs sm:text-sm">Geral 1/4</TabsTrigger>
+                  <TabsTrigger value="endereco">Endereço 2/4</TabsTrigger>
+                  <TabsTrigger value="pagamento">Pagamento 3/4</TabsTrigger>
+                  <TabsTrigger value="fotos">Fotos 4/4</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="geral" className="space-y-4 mt-4">
+                  <div className="rounded-lg border border-muted bg-muted/30 p-3 flex gap-2">
+                    <Info className="w-5 h-5 shrink-0 text-muted-foreground mt-0.5" />
+                    <div className="text-sm text-muted-foreground">
+                      O Charge Point ID deve ser exatamente o mesmo configurado no carregador físico OCPP.
+                      Ex.: <code className="font-mono bg-muted px-1 rounded">CP001</code> →{" "}
+                      <code className="font-mono bg-muted px-1 rounded text-xs">wss://backend/ocpp/CP001</code>.
+                    </div>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="station-company">Empresa *</Label>
-                  <Select
-                    value={formCompanyId?.toString() ?? ""}
-                    onValueChange={(v) => setFormCompanyId(v ? Number(v) : null)}
-                  >
-                    <SelectTrigger id="station-company">
-                      <SelectValue placeholder="Selecione a empresa" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {companiesForSelect.map((c) => (
-                        <SelectItem key={c.id} value={String(c.id)}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="station-name">Nome da estação *</Label>
-                  <Input
-                    id="station-name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Ex: Estação Centro"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="charge-point-id">Charge Point ID (ID do carregador OCPP) *</Label>
-                  <Input
-                    id="charge-point-id"
-                    value={chargePointId}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      const stripped = stripUrlPrefixes(raw);
-                      setChargePointId(stripped !== raw ? stripped : raw);
-                      setChargePointIdError(null);
-                    }}
-                    onBlur={() => {
-                      if (chargePointId.trim()) {
-                        const result = sanitizeChargePointId(chargePointId);
-                        setChargePointIdError(result.valid ? null : result.error);
-                      } else {
+                  <div className="space-y-2">
+                    <Label htmlFor="station-company">Empresa *</Label>
+                    <Select
+                      value={formCompanyId?.toString() ?? ""}
+                      onValueChange={(v) => setFormCompanyId(v ? Number(v) : null)}
+                    >
+                      <SelectTrigger id="station-company">
+                        <SelectValue placeholder="Selecione a empresa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {companiesForSelect.map((c) => (
+                          <SelectItem key={c.id} value={String(c.id)}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="station-name">Nome da estação *</Label>
+                    <Input
+                      id="station-name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Ex: Estação Centro"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="charge-point-id">Código de identificação / Charge Point ID *</Label>
+                    <Input
+                      id="charge-point-id"
+                      value={chargePointId}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const stripped = stripUrlPrefixes(raw);
+                        setChargePointId(stripped !== raw ? stripped : raw);
                         setChargePointIdError(null);
-                      }
-                    }}
-                    placeholder="Ex: CP001, charger001"
-                    className={chargePointIdError ? "border-destructive" : ""}
-                  />
-                  {chargePointIdError && (
-                    <p className="text-sm text-destructive">{chargePointIdError}</p>
+                      }}
+                      onBlur={() => {
+                        if (chargePointId.trim()) {
+                          const result = sanitizeChargePointId(chargePointId);
+                          setChargePointIdError(result.valid ? null : result.error);
+                        } else setChargePointIdError(null);
+                      }}
+                      placeholder="Ex: CP001"
+                      className={chargePointIdError ? "border-destructive" : ""}
+                    />
+                    {chargePointIdError && (
+                      <p className="text-sm text-destructive">{chargePointIdError}</p>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="station-website">Endereço web</Label>
+                      <Input
+                        id="station-website"
+                        type="url"
+                        value={websiteUrl}
+                        onChange={(e) => setWebsiteUrl(e.target.value)}
+                        placeholder="https://..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="station-external-id">ID Externo</Label>
+                      <Input
+                        id="station-external-id"
+                        value={externalId}
+                        onChange={(e) => setExternalId(e.target.value)}
+                        placeholder="Ex: EXT-001"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="station-description">Descrição</Label>
+                    <Input
+                      id="station-description"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Breve descrição da estação"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="station-type">Tipo</Label>
+                      <Input
+                        id="station-type"
+                        value={stationType}
+                        onChange={(e) => setStationType(e.target.value)}
+                        placeholder="Ex: Público"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="station-group">Grupo da Estação</Label>
+                      <Input
+                        id="station-group"
+                        value={stationGroup}
+                        onChange={(e) => setStationGroup(e.target.value)}
+                        placeholder="Ex: Centro"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="station-connector-count">Número de bocas (opcional)</Label>
+                    <Input
+                      id="station-connector-count"
+                      type="number"
+                      min={1}
+                      max={32}
+                      value={connectorCount}
+                      onChange={(e) => setConnectorCount(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                      placeholder="Deixe vazio para detectar ao conectar"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="station-vendor">Fabricante</Label>
+                      <Input
+                        id="station-vendor"
+                        value={vendor}
+                        onChange={(e) => setVendor(e.target.value)}
+                        placeholder="Ex: Atomtech"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="station-model">Modelo</Label>
+                      <Input
+                        id="station-model"
+                        value={model}
+                        onChange={(e) => setModel(e.target.value)}
+                        placeholder="Ex: Simulador"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-6">
+                    <div className="flex items-center gap-2">
+                      <Switch id="enable-reservation" checked={enableReservation} onCheckedChange={setEnableReservation} />
+                      <Label htmlFor="enable-reservation">Habilitar reserva</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch id="enabled" checked={enabled} onCheckedChange={setEnabled} />
+                      <Label htmlFor="enabled">Habilitar estação</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch id="show-charge-pct" checked={showChargePercentage} onCheckedChange={setShowChargePercentage} />
+                      <Label htmlFor="show-charge-pct">Mostrar % de recarga</Label>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Switch id="open-24h" checked={open24h} onCheckedChange={setOpen24h} />
+                      <Label htmlFor="open-24h">Aberto 24 horas</Label>
+                    </div>
+                    {!open24h && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Horário de abertura</Label>
+                          <Input
+                            type="time"
+                            value={openingTime}
+                            onChange={(e) => setOpeningTime(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Horário de fechamento</Label>
+                          <Input
+                            type="time"
+                            value={closingTime}
+                            onChange={(e) => setClosingTime(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="endereco" className="space-y-4 mt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="station-cep">CEP</Label>
+                      <Input
+                        id="station-cep"
+                        value={cep}
+                        onChange={(e) => setCep(e.target.value)}
+                        placeholder="00000-000"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="station-number">Número</Label>
+                      <Input
+                        id="station-number"
+                        value={addressNumber}
+                        onChange={(e) => setAddressNumber(e.target.value)}
+                        placeholder="123"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="station-street">Rua</Label>
+                    <Input
+                      id="station-street"
+                      value={street}
+                      onChange={(e) => setStreet(e.target.value)}
+                      placeholder="Rua Exemplo"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="station-city">Cidade</Label>
+                      <Input
+                        id="station-city"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        placeholder="São Paulo"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="station-uf">UF</Label>
+                      <Input
+                        id="station-uf"
+                        value={uf}
+                        onChange={(e) => setUf(e.target.value)}
+                        placeholder="SP"
+                        maxLength={2}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="station-country">País</Label>
+                    <Input
+                      id="station-country"
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                      placeholder="Brasil"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="station-lat">Latitude</Label>
+                      <Input
+                        id="station-lat"
+                        type="number"
+                        step="any"
+                        value={lat}
+                        onChange={(e) => setLat(e.target.value)}
+                        placeholder="-23.5505"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="station-lng">Longitude</Label>
+                      <Input
+                        id="station-lng"
+                        type="number"
+                        step="any"
+                        value={lng}
+                        onChange={(e) => setLng(e.target.value)}
+                        placeholder="-46.6333"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch id="show-location" checked={showLocation} onCheckedChange={setShowLocation} />
+                    <Label htmlFor="show-location">Mostrar localização</Label>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="pagamento" className="space-y-4 mt-4">
+                  <div className="flex items-center gap-2">
+                    <Switch id="charge-enabled" checked={chargeEnabled} onCheckedChange={setChargeEnabled} />
+                    <Label htmlFor="charge-enabled">Recarga será cobrada</Label>
+                  </div>
+                  {chargeEnabled && (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Tipo de cobrança</Label>
+                        <Select value={chargeType} onValueChange={(v) => setChargeType(v as "kwh" | "min")}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="kwh">kWh</SelectItem>
+                            <SelectItem value="min">Por minuto</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="cost-per-kwh">Custo (R$) por kWh</Label>
+                        <Input
+                          id="cost-per-kwh"
+                          value={costPerKwh}
+                          onChange={(e) => setCostPerKwh(e.target.value)}
+                          placeholder="0,00"
+                        />
+                      </div>
+                      <p className="text-sm text-muted-foreground">Receita (uso interno)</p>
+                      <div className="space-y-2">
+                        <Label htmlFor="revenue-charge-type">Tipo de cobrança para receita</Label>
+                        <Input
+                          id="revenue-charge-type"
+                          value={revenueChargeType}
+                          onChange={(e) => setRevenueChargeType(e.target.value)}
+                          placeholder="Ex: kWh"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="revenue-per-start">Receita (R$) por início de recarga</Label>
+                          <Input
+                            id="revenue-per-start"
+                            value={revenuePerStart}
+                            onChange={(e) => setRevenuePerStart(e.target.value)}
+                            placeholder="0,00"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="revenue-tax">Taxa por receita (%)</Label>
+                          <Input
+                            id="revenue-tax"
+                            value={revenueTaxPercent}
+                            onChange={(e) => setRevenueTaxPercent(e.target.value)}
+                            placeholder="0"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="revenue-per-kwh">Receita (R$) por kWh</Label>
+                        <Input
+                          id="revenue-per-kwh"
+                          value={revenuePerKwh}
+                          onChange={(e) => setRevenuePerKwh(e.target.value)}
+                          placeholder="0,00"
+                        />
+                      </div>
+                    </>
                   )}
-                </div>
+                </TabsContent>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <TabsContent value="fotos" className="space-y-4 mt-4">
                   <div className="space-y-2">
-                    <Label htmlFor="station-vendor">Fabricante (opcional)</Label>
+                    <Label htmlFor="main-photo">URL da foto principal</Label>
                     <Input
-                      id="station-vendor"
-                      value={vendor}
-                      onChange={(e) => setVendor(e.target.value)}
-                      placeholder="Ex: Atomtech"
+                      id="main-photo"
+                      type="url"
+                      value={mainPhotoUrl}
+                      onChange={(e) => setMainPhotoUrl(e.target.value)}
+                      placeholder="https://..."
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="station-model">Modelo (opcional)</Label>
-                    <Input
-                      id="station-model"
-                      value={model}
-                      onChange={(e) => setModel(e.target.value)}
-                      placeholder="Ex: Simulador"
+                    <Label htmlFor="photo-urls">Outras fotos (uma URL por linha)</Label>
+                    <textarea
+                      id="photo-urls"
+                      className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={photoUrlsText}
+                      onChange={(e) => setPhotoUrlsText(e.target.value)}
+                      placeholder="https://foto1.jpg&#10;https://foto2.jpg"
+                      rows={4}
                     />
                   </div>
-                </div>
+                  <p className="text-xs text-muted-foreground">
+                    Upload direto de arquivos (Supabase Storage) pode ser integrado em breve.
+                  </p>
+                </TabsContent>
+              </Tabs>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="station-city">Cidade (opcional)</Label>
-                    <Input
-                      id="station-city"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      placeholder="Ex: São Paulo"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="station-uf">UF (opcional)</Label>
-                    <Input
-                      id="station-uf"
-                      value={uf}
-                      onChange={(e) => setUf(e.target.value)}
-                      placeholder="SP"
-                      maxLength={2}
-                    />
-                  </div>
-                </div>
-
-                <p className="text-xs text-muted-foreground">
-                  O status é atualizado automaticamente pelo backend OCPP quando o carregador conecta,
-                  desconecta ou inicia sessão de carregamento.
-                </p>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button
-                    onClick={handleCreate}
-                    disabled={
-                      !name.trim() ||
-                      !chargePointId.trim() ||
-                      !formCompanyId ||
-                      !!chargePointIdError ||
-                      !sanitizeChargePointId(chargePointId).valid
-                    }
-                  >
-                    Adicionar
-                  </Button>
-                </div>
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleCreate}
+                  disabled={
+                    !name.trim() ||
+                    !chargePointId.trim() ||
+                    !formCompanyId ||
+                    !!chargePointIdError ||
+                    !sanitizeChargePointId(chargePointId).valid
+                  }
+                >
+                  Adicionar
+                </Button>
               </div>
             </DialogContent>
           </Dialog>

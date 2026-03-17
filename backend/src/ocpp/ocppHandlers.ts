@@ -13,6 +13,7 @@ import {
 } from "../services/transactionService";
 import {
   ensureConnectorsForStation,
+  ensureConnectorsUpTo,
   updateConnectorStatus,
   setConnectorTransaction,
 } from "../services/connectorService";
@@ -143,7 +144,11 @@ async function handleBootNotification(
   const station = await findStationByChargePointId(chargePointId);
   if (station) {
     await updateStationBootInfo(chargePointId, vendor, model);
-    await ensureConnectorsForStation(Number(station.id), 2);
+    const connectorCount = station.connector_count != null ? Number(station.connector_count) : 0;
+    if (connectorCount > 0) {
+      await ensureConnectorsForStation(Number(station.id), connectorCount);
+      console.log(`[OCPP] Using predefined connector count: ${connectorCount}`);
+    }
   } else {
     console.warn(`[OCPP] Estação não cadastrada: ${chargePointId}`);
   }
@@ -225,6 +230,7 @@ async function handleStatusNotification(
     const stationStatus = stationStatusMap[status] ?? "offline";
     await updateStationStatus(chargePointId, stationStatus);
     if (connectorId >= 1) {
+      await ensureConnectorsUpTo(Number(station.id), connectorId);
       await updateConnectorStatus(Number(station.id), connectorId, dbStatus);
       realtimeEmitter("connector_update", {
         chargePointId,

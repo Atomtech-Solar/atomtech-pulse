@@ -1,5 +1,5 @@
 import { getSupabase } from "../database/supabaseClient";
-import { listConnectorsByStation } from "./connectorService";
+import { listConnectorsByStation, ensureConnectorsForStation } from "./connectorService";
 
 export const VALID_STATUSES = [
   "offline",
@@ -25,6 +25,7 @@ export interface StationRow {
   total_kwh: number;
   total_sessions: number;
   created_at: string;
+  connector_count?: number | null;
 }
 
 export interface CreateStationInput {
@@ -37,6 +38,7 @@ export interface CreateStationInput {
   lng?: number | null;
   charge_point_vendor?: string | null;
   charge_point_model?: string | null;
+  connector_count?: number | null;
 }
 
 /** Sessão recente da estação (transação OCPP) */
@@ -55,7 +57,7 @@ export async function findStationByChargePointId(
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("stations")
-    .select("id, charge_point_id, company_id, name, status, last_seen, charge_point_vendor, charge_point_model, total_kwh, total_sessions")
+    .select("id, charge_point_id, company_id, name, status, last_seen, charge_point_vendor, charge_point_model, total_kwh, total_sessions, connector_count")
     .eq("charge_point_id", chargePointId)
     .single();
 
@@ -309,9 +311,9 @@ export async function listStations(): Promise<StationRow[]> {
   })) as StationRow[];
 }
 
-/** Cria estação (POST /stations) - status sempre offline */
+/** Cria estação (POST /stations) - status sempre offline. Se connector_count > 0, cria os conectores. */
 export async function createStation(input: CreateStationInput): Promise<StationRow> {
-  const insert = {
+  const insert: Record<string, unknown> = {
     company_id: input.company_id,
     name: input.name.trim(),
     charge_point_id: input.charge_point_id.trim(),
@@ -323,6 +325,9 @@ export async function createStation(input: CreateStationInput): Promise<StationR
     charge_point_model: input.charge_point_model?.trim() || null,
     status: "offline",
   };
+  if (input.connector_count != null && input.connector_count > 0) {
+    insert.connector_count = input.connector_count;
+  }
 
   const supabase = getSupabase();
   const { data, error } = await supabase.from("stations").insert(insert).select().single();
@@ -332,6 +337,13 @@ export async function createStation(input: CreateStationInput): Promise<StationR
       throw new Error("Charge Point ID já cadastrado.");
     }
     throw error;
+  }
+
+  const row = data as Record<string, unknown>;
+  const connectorCount = row.connector_count != null ? Number(row.connector_count) : 0;
+  if (connectorCount > 0) {
+    await ensureConnectorsForStation(Number(row.id), connectorCount);
+    console.log(`[OCPP] Using predefined connector count: ${connectorCount}`);
   }
 
   return data as unknown as StationRow;
