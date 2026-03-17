@@ -15,8 +15,8 @@ export default function StationHeader({ name, chargePointId }: StationHeaderProp
       <Button
         variant="ghost"
         size="icon"
-        onClick={() => navigate("/dashboard")}
-        aria-label="Voltar para dashboard"
+        onClick={() => navigate("/dashboard/stations")}
+        aria-label="Voltar para estações"
       >
         <ArrowLeft className="w-4 h-4" />
       </Button>
@@ -29,8 +29,8 @@ export default function StationHeader({ name, chargePointId }: StationHeaderProp
           {chargePointId}
         </p>
       </div>
-      <Button variant="outline" onClick={() => navigate("/dashboard")}>
-        Voltar para dashboard
+      <Button variant="outline" onClick={() => navigate("/dashboard/stations")}>
+        Voltar para estações
       </Button>
     </div>
   );

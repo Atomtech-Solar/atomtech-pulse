@@ -22,8 +22,8 @@ const employees = [
 ];
 
 export default function SettingsPage() {
-  const { selectedCompanyId } = useAuth();
-  const { data: settings, refetch } = useCompanySettings();
+  const { user, selectedCompanyId } = useAuth();
+  const { data: settings, isLoading, isError, error, refetch } = useCompanySettings();
   const { toast } = useToast();
 
   const [currency, setCurrency] = useState("BRL");
@@ -58,6 +58,59 @@ export default function SettingsPage() {
       refetch();
     }
   };
+
+  if (user?.role === "super_admin" && !selectedCompanyId) {
+    return (
+      <div className="space-y-4 sm:space-y-6 animate-fade-in">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-display font-bold">Configurações</h1>
+          <p className="text-muted-foreground text-sm mt-1">Preferências do sistema e equipe</p>
+        </div>
+        <Card className="border-border">
+          <CardContent className="py-12 text-center text-muted-foreground">
+            Selecione uma empresa no seletor do cabeçalho para editar as configurações.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (selectedCompanyId && isLoading) {
+    return (
+      <div className="space-y-4 sm:space-y-6 animate-fade-in">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-display font-bold">Configurações</h1>
+          <p className="text-muted-foreground text-sm mt-1">Preferências do sistema e equipe</p>
+        </div>
+        <Card className="border-border">
+          <CardContent className="py-12 flex flex-col items-center justify-center gap-3">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-muted-foreground">Carregando configurações...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (selectedCompanyId && isError) {
+    return (
+      <div className="space-y-4 sm:space-y-6 animate-fade-in">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-display font-bold">Configurações</h1>
+          <p className="text-muted-foreground text-sm mt-1">Preferências do sistema e equipe</p>
+        </div>
+        <Card className="border-border border-destructive/30">
+          <CardContent className="py-12 text-center">
+            <p className="text-destructive font-medium mb-2">Falha ao carregar configurações.</p>
+            <p className="text-sm text-muted-foreground mb-4">{error instanceof Error ? error.message : "Tente novamente."}</p>
+            <Button variant="outline" onClick={() => refetch()}>
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">

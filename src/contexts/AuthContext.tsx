@@ -150,6 +150,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const LOGIN_TIMEOUT_MS = 15000;
 /** Timeout curto para getSession - sessões stale causam refresh lento (segundos). */
 const SESSION_CHECK_TIMEOUT_MS = 500;
+/** Timeout para buscar perfil do usuário (evita loading infinito em /dashboard após F5). */
+const PROFILE_TIMEOUT_MS = 12000;
 
 const AUTH_LOG = {
   start: (msg: string) => import.meta.env.DEV && console.log(`[Auth] ${msg}`),
@@ -197,11 +199,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number, msg: string): Promise<T
 }
 
 async function fetchProfileFromSession(userId: string): Promise<AuthUser | null> {
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("user_id, email, name, role, company_id")
-    .eq("user_id", userId)
-    .single();
+  const { data: profile, error } = await withTimeout(
+    supabase
+      .from("profiles")
+      .select("user_id, email, name, role, company_id")
+      .eq("user_id", userId)
+      .single(),
+    PROFILE_TIMEOUT_MS,
+    "Tempo limite excedido ao carregar perfil. Tente novamente."
+  );
 
   if (error) {
     if (isSupabaseAuthError(error)) {
@@ -342,7 +348,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubSessionInvalid;
   }, [forceLogout]);
 
-  // Refresh de sessão: (1) ao retornar à aba, (2) a cada 9min quando ativo (evita auth.uid() NULL)
+  // Refresh de sessão: (1) ao retornar à aba, (2) a cada 50s quando ativo (evita token expirado após ~1 min de inatividade)
   useEffect(() => {
     const doRefresh = () => {
       if (!user) return;
@@ -359,7 +365,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    const interval = setInterval(doRefresh, 9 * 60 * 1000); // 9 minutos
+    const interval = setInterval(doRefresh, 50 * 1000); // 50 segundos
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       clearInterval(interval);

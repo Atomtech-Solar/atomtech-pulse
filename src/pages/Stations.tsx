@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanies } from "@/hooks/useSupabaseData";
@@ -81,10 +81,14 @@ function formatLastSeen(value: string | null): string {
   });
 }
 
+const STALE_TIME_MS = 60000;
+
 export default function StationsPage() {
-  const { user, selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
   const [chargePointId, setChargePointId] = useState("");
@@ -105,6 +109,14 @@ export default function StationsPage() {
       : companies.filter((c) => c.id === user?.company_id);
 
   useEffect(() => {
+    const state = location.state as { openNewDialog?: boolean } | undefined;
+    if (state?.openNewDialog) {
+      setDialogOpen(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
     if (dialogOpen && companiesForSelect.length > 0 && !formCompanyId) {
       const defaultId =
         user?.role === "super_admin"
@@ -115,9 +127,17 @@ export default function StationsPage() {
     if (!dialogOpen) setFormCompanyId(null);
   }, [dialogOpen, companiesForSelect, formCompanyId, user?.role, selectedCompanyId, user?.company_id]);
 
-  const { data: stations = [], isLoading } = useQuery({
-    queryKey: ["stations-module", companyId],
+  const {
+    data: stations = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["stations-module", user?.id, companyId],
     queryFn: () => listStations(companyId ?? undefined),
+    enabled: isSessionReady && !!user,
+    staleTime: STALE_TIME_MS,
   });
 
   useEffect(() => {
@@ -414,8 +434,21 @@ export default function StationsPage() {
       <div className="grid gap-4">
         {isLoading ? (
           <Card className="border-border">
-            <CardContent className="py-12 text-center text-muted-foreground">
-              Carregando...
+            <CardContent className="py-12 flex flex-col items-center justify-center gap-3">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-muted-foreground">Carregando estações...</p>
+            </CardContent>
+          </Card>
+        ) : isError ? (
+          <Card className="border-border border-destructive/30">
+            <CardContent className="py-12 text-center">
+              <p className="text-destructive font-medium mb-2">Falha ao carregar estações.</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                {error instanceof Error ? error.message : "Tente novamente."}
+              </p>
+              <Button variant="outline" onClick={() => refetch()}>
+                Tentar novamente
+              </Button>
             </CardContent>
           </Card>
         ) : stations.length === 0 ? (

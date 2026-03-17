@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { getStationDetails } from "@/services/stationsService";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
@@ -36,11 +37,12 @@ export default function StationDetailsPage() {
   const { stationId } = useParams<{ stationId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user, isSessionReady } = useAuth();
 
   const { data: station, isLoading, error } = useQuery({
     queryKey: ["station-details", stationId],
     queryFn: () => getStationDetails(stationId!),
-    enabled: !!stationId,
+    enabled: isSessionReady && !!user && !!stationId,
   });
 
   useEffect(() => {
@@ -107,13 +109,13 @@ export default function StationDetailsPage() {
     };
   }, [stationId, queryClient]);
 
-  const handleBack = () => navigate("/dashboard");
+  const handleBack = () => navigate("/dashboard/stations");
 
   if (!stationId) {
     return (
       <div className="space-y-4 animate-fade-in">
         <Button variant="ghost" onClick={handleBack}>
-          Voltar para dashboard
+          Voltar para estações
         </Button>
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
@@ -128,7 +130,7 @@ export default function StationDetailsPage() {
     return (
       <div className="space-y-4 animate-fade-in">
         <Button variant="ghost" onClick={handleBack}>
-          Voltar para dashboard
+          Voltar para estações
         </Button>
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
@@ -143,7 +145,7 @@ export default function StationDetailsPage() {
     return (
       <div className="space-y-4 animate-fade-in">
         <Button variant="ghost" onClick={handleBack}>
-          Voltar para dashboard
+          Voltar para estações
         </Button>
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">

@@ -1,17 +1,64 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { useSessions, useStations, useStationRevenue } from "@/hooks/useSupabaseData";
+import { useSessions, useStationRevenue } from "@/hooks/useSupabaseData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { DollarSign, TrendingUp } from "lucide-react";
 
 export default function Financial() {
   const { user, selectedCompanyId } = useAuth();
   const role = user?.role ?? "viewer";
-  const { data: sessions = [] } = useSessions();
-  const { data: stationRevenue = [] } = useStationRevenue();
+  const { data: sessions = [], isLoading: sessionsLoading, isError: sessionsError, error: sessionsErrorObj, refetch: refetchSessions } = useSessions();
+  const { data: stationRevenue = [], isLoading: revenueLoading, isError: revenueError, error: revenueErrorObj, refetch: refetchRevenue } = useStationRevenue();
+
+  const isLoading = sessionsLoading || revenueLoading;
+  const isError = sessionsError || revenueError;
+  const errorMessage = sessionsErrorObj?.message ?? revenueErrorObj?.message ?? "Falha ao carregar dados.";
+  const refetchAll = () => {
+    refetchSessions();
+    refetchRevenue();
+  };
+
   const totalRevenue = sessions.reduce((s, se) => s + (se.revenue ?? 0), 0);
   const taxes = totalRevenue * 0.08;
   const opFees = sessions.length * 5;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4 sm:space-y-6 animate-fade-in">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-display font-bold">Financeiro</h1>
+          <p className="text-muted-foreground text-sm mt-1">Visão consolidada de receitas</p>
+        </div>
+        <Card className="border-border">
+          <CardContent className="py-12 flex flex-col items-center justify-center gap-3">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-muted-foreground">Carregando dados...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="space-y-4 sm:space-y-6 animate-fade-in">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-display font-bold">Financeiro</h1>
+          <p className="text-muted-foreground text-sm mt-1">Visão consolidada de receitas</p>
+        </div>
+        <Card className="border-border border-destructive/30">
+          <CardContent className="py-12 text-center">
+            <p className="text-destructive font-medium mb-2">Falha ao carregar dados.</p>
+            <p className="text-sm text-muted-foreground mb-4">{errorMessage}</p>
+            <Button variant="outline" onClick={refetchAll}>
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">

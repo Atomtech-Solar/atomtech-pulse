@@ -13,7 +13,6 @@ import AuthInit from "@/components/AuthInit";
 import AdminProtectedRoute from "@/components/AdminProtectedRoute";
 import DashboardProtectedRoute from "@/components/DashboardProtectedRoute";
 import DashboardLayout from "@/components/DashboardLayout";
-import AdminLayout from "@/components/AdminLayout";
 import Login from "@/pages/Login";
 import Landing from "@/pages/Landing";
 import Register from "@/pages/Register";
@@ -79,7 +78,7 @@ const App = () => {
             <Route path="/politica-de-privacidade" element={<PrivacyPolicy />} />
             <Route path="/app/*" element={<AppRedirect />} />
             <Route element={<AdminProtectedRoute />}>
-              <Route path="/admin" element={<AdminLayout />}>
+              <Route path="/admin" element={<DashboardLayout />}>
                 <Route index element={<Navigate to="/admin/companies" replace />} />
                 <Route path="companies" element={<Companies />} />
                 <Route path="landing-analytics" element={<LandingPageAnalytics />} />
