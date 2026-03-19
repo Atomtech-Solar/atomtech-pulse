@@ -1,36 +1,41 @@
 import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { getStationDetails } from "@/services/stationsService";
+import {
+  getStationDetails,
+  getStationConsumptionByDay,
+  updateStationEnabled,
+} from "@/services/stationsService";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import StationHeader from "@/components/stations/StationHeader";
-import ConnectorCard from "@/components/stations/ConnectorCard";
-import SessionTable from "@/components/stations/SessionTable";
+import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
+import { motion } from "framer-motion";
 import {
-  statusColors,
-  statusLabels,
-  formatLastSeen,
-} from "@/components/stations/stationConstants";
+  StationHeader,
+  StationSidebar,
+  StationEvents,
+  StationTransactions,
+  StationAnalytics,
+  StationMetrics,
+  StationFinancial,
+  StationConnectors,
+  StationPhotoBanner,
+  StationPhotoGallery,
+  deriveEventsFromSessions,
+  sessionsToTransactions,
+} from "@/components/stations/command-center";
+import CommandCenterSkeleton from "@/components/stations/command-center/CommandCenterSkeleton";
 
-function DetailItem({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: React.ReactNode;
-  mono?: boolean;
-}) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground mb-1">{label}</p>
-      <div className={mono ? "font-mono text-sm" : "text-sm"}>{value}</div>
-    </div>
-  );
+function computeTotalRevenue(
+  totalKwh: number,
+  costPerKwh: number | null,
+): number | null {
+  if (costPerKwh == null || Number.isNaN(costPerKwh) || costPerKwh <= 0)
+    return null;
+  const value = totalKwh * costPerKwh;
+  return Number.isNaN(value) ? null : value;
 }
 
 export default function StationDetailsPage() {
@@ -45,11 +50,33 @@ export default function StationDetailsPage() {
     enabled: isSessionReady && !!user && !!stationId,
   });
 
+  const { data: dailyConsumption = [], isLoading: consumptionLoading } = useQuery({
+    queryKey: ["station-consumption", stationId],
+    queryFn: () => getStationConsumptionByDay(stationId!),
+    enabled: !!stationId && !!station,
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      updateStationEnabled(id, enabled),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["station-details", stationId],
+      });
+      toast.success(
+        station?.enabled ? "Estação desativada." : "Estação ativada.",
+      );
+    },
+    onError: (err: Error) => {
+      toast.error(err.message ?? "Erro ao atualizar estação.");
+    },
+  });
+
   useEffect(() => {
     if (!stationId) return;
 
     const channelStations = supabase
-      .channel(`station-details-station-${stationId}`)
+      .channel(`station-command-${stationId}`)
       .on(
         "postgres_changes",
         {
@@ -62,12 +89,12 @@ export default function StationDetailsPage() {
           void queryClient.invalidateQueries({
             queryKey: ["station-details", stationId],
           });
-        }
+        },
       )
       .subscribe();
 
     const channelConnectors = supabase
-      .channel(`station-details-connectors-${stationId}`)
+      .channel(`station-command-connectors-${stationId}`)
       .on(
         "postgres_changes",
         {
@@ -80,12 +107,12 @@ export default function StationDetailsPage() {
           void queryClient.invalidateQueries({
             queryKey: ["station-details", stationId],
           });
-        }
+        },
       )
       .subscribe();
 
     const channelTransactions = supabase
-      .channel(`station-details-transactions-${stationId}`)
+      .channel(`station-command-tx-${stationId}`)
       .on(
         "postgres_changes",
         {
@@ -98,7 +125,10 @@ export default function StationDetailsPage() {
           void queryClient.invalidateQueries({
             queryKey: ["station-details", stationId],
           });
-        }
+          void queryClient.invalidateQueries({
+            queryKey: ["station-consumption", stationId],
+          });
+        },
       )
       .subscribe();
 
@@ -110,138 +140,169 @@ export default function StationDetailsPage() {
   }, [stationId, queryClient]);
 
   const handleBack = () => navigate("/dashboard/stations");
+  const handleEdit = () => {
+    toast.info("Edição de estação em desenvolvimento.");
+  };
+  const handleToggleEnabled = () => {
+    if (!stationId || !station) return;
+    toggleMutation.mutate({ id: stationId, enabled: !station.enabled });
+  };
+  const handleDelete = () => {
+    toast.error("Exclusão de estação em desenvolvimento.");
+  };
 
   if (!stationId) {
     return (
-      <div className="space-y-4 animate-fade-in">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-4"
+      >
         <Button variant="ghost" onClick={handleBack}>
-          Voltar para estações
+          Voltar
         </Button>
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
             ID da estação não informado.
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="space-y-4 animate-fade-in">
-        <Button variant="ghost" onClick={handleBack}>
-          Voltar para estações
-        </Button>
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            Carregando detalhes da estação...
-          </CardContent>
-        </Card>
-      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-6"
+      >
+        <div className="h-14 animate-pulse rounded bg-muted/50" />
+        <CommandCenterSkeleton />
+      </motion.div>
     );
   }
 
   if (error || !station) {
     return (
-      <div className="space-y-4 animate-fade-in">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-4"
+      >
         <Button variant="ghost" onClick={handleBack}>
-          Voltar para estações
+          Voltar
         </Button>
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
             Estação não encontrada ou erro ao carregar.
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
     );
   }
 
-  const sessionRows = station.recent_sessions.map((s) => ({
-    transactionId: s.transaction_id,
-    connectorId: s.connector_id,
-    startTime: s.start_time,
-    stopTime: s.stop_time,
-    energyKwh: s.energy_kwh,
-  }));
+  const totalRevenue = computeTotalRevenue(
+    station.total_kwh,
+    station.cost_per_kwh,
+  );
+  const events = deriveEventsFromSessions(station.recent_sessions);
+  const transactions = sessionsToTransactions(
+    station.recent_sessions,
+    station.cost_per_kwh,
+  );
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-6"
+    >
       <StationHeader
         name={station.name}
-        chargePointId={station.charge_point_id}
+        status={station.status}
+        lastSeen={station.last_seen}
+        city={station.city}
+        uf={station.uf}
+        lat={station.lat}
+        lng={station.lng}
+        enabled={station.enabled}
+        open24h={station.open_24h}
+        openingTime={station.opening_time}
+        closingTime={station.closing_time}
+        onEdit={handleEdit}
+        onToggleEnabled={handleToggleEnabled}
       />
 
-      {/* Bloco 1 — Informações da Estação */}
-      <Card className="border-border">
-        <CardHeader>
-          <CardTitle>Informações da Estação</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <DetailItem label="Charge Point ID" value={station.charge_point_id} mono />
-            <DetailItem label="Fabricante" value={station.vendor ?? "—"} />
-            <DetailItem label="Modelo" value={station.model ?? "—"} />
-            <DetailItem label="Firmware" value={station.firmware ?? "—"} />
-            <DetailItem
-              label="Status"
-              value={
-                <Badge
-                  variant="outline"
-                  className={statusColors[station.status] ?? statusColors.offline}
-                >
-                  {statusLabels[station.status] ?? station.status}
-                </Badge>
-              }
-            />
-            <DetailItem
-              label="Última comunicação"
-              value={formatLastSeen(station.last_seen)}
-            />
-            <DetailItem label="Total de sessões" value={String(station.total_sessions)} />
-            <DetailItem
-              label="Energia total fornecida"
-              value={`${Number(station.total_kwh).toFixed(2)} kWh`}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {station.main_photo_url && (
+        <StationPhotoBanner
+          mainPhotoUrl={station.main_photo_url}
+          name={station.name}
+        />
+      )}
 
-      {/* Bloco 2 — Conectores */}
-      <Card className="border-border">
-        <CardHeader>
-          <CardTitle>Conectores</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {station.connectors.length === 0 ? (
-            <p className="text-muted-foreground text-sm py-4">
-              Nenhum conector cadastrado para esta estação.
-            </p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {station.connectors.map((conn) => (
-                <ConnectorCard
-                  key={conn.connector_id}
-                  connectorId={conn.connector_id}
-                  status={conn.status}
-                  powerKw={conn.power_kw}
-                  energyKwh={conn.energy_kwh}
-                  hasActiveSession={!!conn.current_transaction_id}
-                />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {station.photo_urls && station.photo_urls.length > 0 && (
+        <StationPhotoGallery photoUrls={station.photo_urls} />
+      )}
 
-      {/* Bloco 3 — Sessões Recentes */}
-      <Card className="border-border">
-        <CardHeader>
-          <CardTitle>Sessões Recentes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <SessionTable sessions={sessionRows} />
-        </CardContent>
-      </Card>
-    </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.8fr)_minmax(0,1.2fr)]">
+        <div className="lg:min-w-0">
+          <StationSidebar
+            station={{
+              charge_point_id: station.charge_point_id,
+              external_id: station.external_id,
+              station_type: station.station_type,
+              station_group: station.station_group,
+              vendor: station.vendor,
+              model: station.model,
+              firmware: station.firmware,
+              enabled: station.enabled,
+              enable_reservation: station.enable_reservation,
+              open_24h: station.open_24h,
+              street: station.street,
+              address_number: station.address_number,
+              city: station.city,
+              uf: station.uf,
+              cep: station.cep,
+              country: station.country,
+              lat: station.lat,
+              lng: station.lng,
+            }}
+            onEdit={handleEdit}
+            onToggleEnabled={handleToggleEnabled}
+            onDelete={handleDelete}
+          />
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <StationEvents events={events} />
+          <StationTransactions transactions={transactions} />
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <StationAnalytics
+            dailyData={dailyConsumption}
+            isLoading={consumptionLoading}
+          />
+          <StationMetrics
+            totalSessions={station.total_sessions}
+            totalKwh={station.total_kwh}
+            totalRevenue={totalRevenue}
+          />
+          <StationFinancial
+            chargeEnabled={station.charge_enabled}
+            chargeType={station.charge_type}
+            costPerKwh={station.cost_per_kwh}
+            totalRevenue={totalRevenue}
+            totalSessions={station.total_sessions}
+          />
+          <StationConnectors
+            connectorCount={station.connector_count}
+            connectors={station.connectors}
+          />
+        </div>
+      </div>
+    </motion.div>
   );
 }

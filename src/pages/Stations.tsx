@@ -9,6 +9,7 @@ import {
   stripUrlPrefixes,
   sanitizeChargePointId,
 } from "@/lib/chargePointIdUtils";
+import { formatCep, parseCep } from "@/lib/formatCep";
 import {
   isSupabaseAuthError,
   dispatchSessionInvalid,
@@ -106,7 +107,7 @@ export default function StationsPage() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [description, setDescription] = useState("");
   const [externalId, setExternalId] = useState("");
-  const [stationType, setStationType] = useState("");
+  const [stationType, setStationType] = useState<"public" | "private">("public");
   const [stationGroup, setStationGroup] = useState("");
   const [enableReservation, setEnableReservation] = useState(false);
   const [enabled, setEnabled] = useState(true);
@@ -124,18 +125,19 @@ export default function StationsPage() {
   const [lng, setLng] = useState("");
   const [showLocation, setShowLocation] = useState(true);
 
-  // Pagamento (3/4)
-  const [chargeEnabled, setChargeEnabled] = useState(false);
+  // Pagamento (3/4) — tipo e custo sempre ativos; switch só para receita
   const [chargeType, setChargeType] = useState<"kwh" | "min">("kwh");
   const [costPerKwh, setCostPerKwh] = useState("");
-  const [revenueChargeType, setRevenueChargeType] = useState("");
+  const [revenueEnabled, setRevenueEnabled] = useState(false);
+  const [revenueChargeType, setRevenueChargeType] = useState<"estação" | "conector">("estação");
   const [revenuePerStart, setRevenuePerStart] = useState("");
   const [revenueTaxPercent, setRevenueTaxPercent] = useState("");
   const [revenuePerKwh, setRevenuePerKwh] = useState("");
 
-  // Fotos (4/4)
-  const [mainPhotoUrl, setMainPhotoUrl] = useState("");
-  const [photoUrlsText, setPhotoUrlsText] = useState("");
+  // Fotos (4/4) — upload de arquivos
+  const [mainPhotoFile, setMainPhotoFile] = useState<File | null>(null);
+  const [extraPhotoFiles, setExtraPhotoFiles] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState(false);
 
   const { data: companies = [] } = useCompanies();
   const companyId =
@@ -275,13 +277,49 @@ export default function StationsPage() {
       return;
     }
     setChargePointIdError(null);
+    setUploadProgress(true);
+    const SUBMIT_TIMEOUT_MS = 30000;
+
     try {
       const numConnectors = connectorCount.trim() ? parseInt(connectorCount, 10) : null;
-      const photoUrls = photoUrlsText
-        .split(/\r?\n/)
-        .map((u) => u.trim())
-        .filter(Boolean);
-      await createStation({
+      const costNum = costPerKwh.trim() ? Number(costPerKwh.replace(",", ".")) : null;
+      const chargeEnabled = costNum != null && costNum > 0;
+
+      let mainPhotoUrl: string | null = null;
+      const photoUrls: string[] = [];
+
+      if (mainPhotoFile) {
+        try {
+          console.log("[Stations] Upload foto principal:", mainPhotoFile.name);
+          const path = `stations/${Date.now()}-${mainPhotoFile.name}`;
+          const { data, error } = await supabase.storage
+            .from("station-photos")
+            .upload(path, mainPhotoFile, { upsert: false });
+          if (error) throw new Error(`Falha no upload da foto principal: ${error.message}`);
+          const { data: pub } = supabase.storage.from("station-photos").getPublicUrl(data.path);
+          mainPhotoUrl = pub.publicUrl;
+          console.log("[Stations] Foto principal enviada:", mainPhotoUrl);
+        } catch (photoErr) {
+          console.warn("[Stations] Upload foto principal falhou, continuando sem foto:", photoErr);
+          toast({ title: "Aviso", description: "Foto principal não enviada. Estação será criada sem foto." });
+        }
+      }
+      for (let i = 0; i < extraPhotoFiles.length; i++) {
+        try {
+          const f = extraPhotoFiles[i];
+          const path = `stations/${Date.now()}-${i}-${f.name}`;
+          const { data, error } = await supabase.storage
+            .from("station-photos")
+            .upload(path, f, { upsert: false });
+          if (error) throw new Error(`Falha no upload da foto ${i + 1}: ${error.message}`);
+          const { data: pub } = supabase.storage.from("station-photos").getPublicUrl(data.path);
+          photoUrls.push(pub.publicUrl);
+        } catch (photoErr) {
+          console.warn("[Stations] Upload foto extra falhou:", photoErr);
+        }
+      }
+
+      const payload = {
         name: name.trim(),
         charge_point_id: sanitized.id,
         company_id: Number(cid),
@@ -293,7 +331,7 @@ export default function StationsPage() {
         website_url: websiteUrl.trim() || null,
         description: description.trim() || null,
         external_id: externalId.trim() || null,
-        station_type: stationType.trim() || null,
+        station_type: stationType,
         station_group: stationGroup.trim() || null,
         enable_reservation: enableReservation,
         enabled: enabled,
@@ -301,7 +339,7 @@ export default function StationsPage() {
         opening_time: open24h ? null : (openingTime.trim() || null),
         closing_time: open24h ? null : (closingTime.trim() || null),
         open_24h: open24h,
-        cep: cep.trim() || null,
+        cep: cep.trim() ? parseCep(cep) : null,
         street: street.trim() || null,
         address_number: addressNumber.trim() || null,
         country: country.trim() || null,
@@ -309,16 +347,25 @@ export default function StationsPage() {
         lng: lng.trim() ? Number(lng) : null,
         show_location: showLocation,
         charge_enabled: chargeEnabled,
-        charge_type: chargeEnabled ? chargeType : null,
-        cost_per_kwh: chargeEnabled && costPerKwh.trim() ? Number(costPerKwh.replace(",", ".")) : null,
-        revenue_charge_type: chargeEnabled ? (revenueChargeType.trim() || null) : null,
-        revenue_per_start: chargeEnabled && revenuePerStart.trim() ? Number(revenuePerStart.replace(",", ".")) : null,
-        revenue_tax_percent: chargeEnabled && revenueTaxPercent.trim() ? Number(revenueTaxPercent.replace(",", ".")) : null,
-        revenue_per_kwh: chargeEnabled && revenuePerKwh.trim() ? Number(revenuePerKwh.replace(",", ".")) : null,
-        main_photo_url: mainPhotoUrl.trim() || null,
+        charge_type: chargeType,
+        cost_per_kwh: costNum,
+        revenue_charge_type: revenueEnabled ? revenueChargeType : null,
+        revenue_per_start: revenueEnabled && revenuePerStart.trim() ? Number(revenuePerStart.replace(",", ".")) : null,
+        revenue_tax_percent: revenueEnabled && revenueTaxPercent.trim() ? Number(revenueTaxPercent.replace(",", ".")) : null,
+        revenue_per_kwh: revenueEnabled && revenueChargeType === "estação" && revenuePerKwh.trim() ? Number(revenuePerKwh.replace(",", ".")) : null,
+        main_photo_url: mainPhotoUrl,
         photo_urls: photoUrls.length > 0 ? photoUrls : null,
-      });
-      toast({ title: "Estação criada", description: name });
+      };
+      console.log("[Stations] Enviando payload:", payload);
+
+      const createPromise = createStation(payload);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Tempo limite excedido (30s). Verifique sua conexão.")), SUBMIT_TIMEOUT_MS)
+      );
+      const station = await Promise.race([createPromise, timeoutPromise]);
+      console.log("[Stations] Estação criada com sucesso:", station);
+
+      toast({ title: "Estação cadastrada com sucesso", description: name });
       setDialogOpen(false);
       setName("");
       setChargePointId("");
@@ -332,7 +379,7 @@ export default function StationsPage() {
       setWebsiteUrl("");
       setDescription("");
       setExternalId("");
-      setStationType("");
+      setStationType("public");
       setStationGroup("");
       setEnableReservation(false);
       setEnabled(true);
@@ -347,26 +394,30 @@ export default function StationsPage() {
       setLat("");
       setLng("");
       setShowLocation(true);
-      setChargeEnabled(false);
       setChargeType("kwh");
       setCostPerKwh("");
-      setRevenueChargeType("");
+      setRevenueEnabled(false);
+      setRevenueChargeType("estação");
       setRevenuePerStart("");
       setRevenueTaxPercent("");
       setRevenuePerKwh("");
-      setMainPhotoUrl("");
-      setPhotoUrlsText("");
+      setMainPhotoFile(null);
+      setExtraPhotoFiles([]);
       void queryClient.invalidateQueries({ queryKey: ["stations-module"] });
     } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro inesperado.";
+      console.error("[Stations] Erro ao criar estação:", err);
       if (isSupabaseAuthError(err)) {
         dispatchSessionInvalid();
-        return;
+      } else {
+        toast({
+          title: "Erro ao cadastrar estação",
+          description: msg,
+          variant: "destructive",
+        });
       }
-      toast({
-        title: "Erro ao criar estação",
-        description: err instanceof Error ? err.message : "Erro inesperado.",
-        variant: "destructive",
-      });
+    } finally {
+      setUploadProgress(false);
     }
   };
 
@@ -389,7 +440,7 @@ export default function StationsPage() {
                 setWebsiteUrl("");
                 setDescription("");
                 setExternalId("");
-                setStationType("");
+                setStationType("public");
                 setStationGroup("");
                 setEnableReservation(false);
                 setEnabled(true);
@@ -404,14 +455,15 @@ export default function StationsPage() {
                 setLat("");
                 setLng("");
                 setShowLocation(true);
-                setChargeEnabled(false);
+                setChargeType("kwh");
                 setCostPerKwh("");
-                setRevenueChargeType("");
+                setRevenueEnabled(false);
+                setRevenueChargeType("estação");
                 setRevenuePerStart("");
                 setRevenueTaxPercent("");
                 setRevenuePerKwh("");
-                setMainPhotoUrl("");
-                setPhotoUrlsText("");
+                setMainPhotoFile(null);
+                setExtraPhotoFiles([]);
               }
             }}
           >
@@ -526,12 +578,18 @@ export default function StationsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="station-type">Tipo</Label>
-                      <Input
-                        id="station-type"
+                      <Select
                         value={stationType}
-                        onChange={(e) => setStationType(e.target.value)}
-                        placeholder="Ex: Público"
-                      />
+                        onValueChange={(v) => setStationType(v as "public" | "private")}
+                      >
+                        <SelectTrigger id="station-type">
+                          <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="public">Público</SelectItem>
+                          <SelectItem value="private">Privado</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="station-group">Grupo da Estação</Label>
@@ -624,8 +682,9 @@ export default function StationsPage() {
                       <Input
                         id="station-cep"
                         value={cep}
-                        onChange={(e) => setCep(e.target.value)}
+                        onChange={(e) => setCep(formatCep(e.target.value))}
                         placeholder="00000-000"
+                        maxLength={9}
                       />
                     </div>
                     <div className="space-y-2">
@@ -708,42 +767,47 @@ export default function StationsPage() {
                 </TabsContent>
 
                 <TabsContent value="pagamento" className="space-y-4 mt-4">
-                  <div className="flex items-center gap-2">
-                    <Switch id="charge-enabled" checked={chargeEnabled} onCheckedChange={setChargeEnabled} />
-                    <Label htmlFor="charge-enabled">Recarga será cobrada</Label>
+                  <div className="space-y-2">
+                    <Label>Tipo de cobrança</Label>
+                    <Select value={chargeType} onValueChange={(v) => setChargeType(v as "kwh" | "min")}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="kwh">kWh</SelectItem>
+                        <SelectItem value="min">Por minuto</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  {chargeEnabled && (
+                  <div className="space-y-2">
+                    <Label htmlFor="cost-per-kwh">Custo (R$) por kWh</Label>
+                    <Input
+                      id="cost-per-kwh"
+                      value={costPerKwh}
+                      onChange={(e) => setCostPerKwh(e.target.value)}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pt-2">
+                    <Switch id="revenue-enabled" checked={revenueEnabled} onCheckedChange={setRevenueEnabled} />
+                    <Label htmlFor="revenue-enabled">Habilitar cobrança de receita</Label>
+                  </div>
+                  {revenueEnabled && (
                     <>
                       <div className="space-y-2">
-                        <Label>Tipo de cobrança</Label>
-                        <Select value={chargeType} onValueChange={(v) => setChargeType(v as "kwh" | "min")}>
+                        <Label>Tipo de cobrança para receita</Label>
+                        <Select
+                          value={revenueChargeType}
+                          onValueChange={(v) => setRevenueChargeType(v as "estação" | "conector")}
+                        >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="kwh">kWh</SelectItem>
-                            <SelectItem value="min">Por minuto</SelectItem>
+                            <SelectItem value="estação">Estação</SelectItem>
+                            <SelectItem value="conector">Conector</SelectItem>
                           </SelectContent>
                         </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="cost-per-kwh">Custo (R$) por kWh</Label>
-                        <Input
-                          id="cost-per-kwh"
-                          value={costPerKwh}
-                          onChange={(e) => setCostPerKwh(e.target.value)}
-                          placeholder="0,00"
-                        />
-                      </div>
-                      <p className="text-sm text-muted-foreground">Receita (uso interno)</p>
-                      <div className="space-y-2">
-                        <Label htmlFor="revenue-charge-type">Tipo de cobrança para receita</Label>
-                        <Input
-                          id="revenue-charge-type"
-                          value={revenueChargeType}
-                          onChange={(e) => setRevenueChargeType(e.target.value)}
-                          placeholder="Ex: kWh"
-                        />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -765,43 +829,53 @@ export default function StationsPage() {
                           />
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="revenue-per-kwh">Receita (R$) por kWh</Label>
-                        <Input
-                          id="revenue-per-kwh"
-                          value={revenuePerKwh}
-                          onChange={(e) => setRevenuePerKwh(e.target.value)}
-                          placeholder="0,00"
-                        />
-                      </div>
+                      {revenueChargeType === "estação" && (
+                        <div className="space-y-2">
+                          <Label htmlFor="revenue-per-kwh">Receita (R$) por kWh</Label>
+                          <Input
+                            id="revenue-per-kwh"
+                            value={revenuePerKwh}
+                            onChange={(e) => setRevenuePerKwh(e.target.value)}
+                            placeholder="0,00"
+                          />
+                        </div>
+                      )}
                     </>
                   )}
                 </TabsContent>
 
                 <TabsContent value="fotos" className="space-y-4 mt-4">
                   <div className="space-y-2">
-                    <Label htmlFor="main-photo">URL da foto principal</Label>
+                    <Label htmlFor="main-photo">Foto principal</Label>
                     <Input
                       id="main-photo"
-                      type="url"
-                      value={mainPhotoUrl}
-                      onChange={(e) => setMainPhotoUrl(e.target.value)}
-                      placeholder="https://..."
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={(e) => setMainPhotoFile(e.target.files?.[0] ?? null)}
                     />
+                    {mainPhotoFile && (
+                      <p className="text-xs text-muted-foreground">{mainPhotoFile.name}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="photo-urls">Outras fotos (uma URL por linha)</Label>
-                    <textarea
-                      id="photo-urls"
-                      className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      value={photoUrlsText}
-                      onChange={(e) => setPhotoUrlsText(e.target.value)}
-                      placeholder="https://foto1.jpg&#10;https://foto2.jpg"
-                      rows={4}
+                    <Label htmlFor="extra-photos">Outras fotos</Label>
+                    <Input
+                      id="extra-photos"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      multiple
+                      onChange={(e) =>
+                        setExtraPhotoFiles(Array.from(e.target.files ?? []))
+                      }
                     />
+                    {extraPhotoFiles.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {extraPhotoFiles.length} arquivo(s) selecionado(s)
+                      </p>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Upload direto de arquivos (Supabase Storage) pode ser integrado em breve.
+                    Formatos: JPEG, PNG, WebP, GIF. Máx. 5 MB por arquivo.
                   </p>
                 </TabsContent>
               </Tabs>
@@ -811,8 +885,10 @@ export default function StationsPage() {
                   Cancelar
                 </Button>
                 <Button
+                  type="button"
                   onClick={handleCreate}
                   disabled={
+                    uploadProgress ||
                     !name.trim() ||
                     !chargePointId.trim() ||
                     !formCompanyId ||
@@ -820,7 +896,7 @@ export default function StationsPage() {
                     !sanitizeChargePointId(chargePointId).valid
                   }
                 >
-                  Adicionar
+                  {uploadProgress ? "Enviando…" : "Adicionar"}
                 </Button>
               </div>
             </DialogContent>

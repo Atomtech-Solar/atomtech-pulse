@@ -14,7 +14,7 @@ const REFRESH_QUERY_KEYS_BY_PATH: Record<string, string[]> = {
   "/dashboard": ["sessions", "stations", "ev_users"],
   "/dashboard/sessions": ["sessions"],
   "/dashboard/stations": ["stations-module", "companies"],
-  "/dashboard/station": ["station-details", "stations"],
+  "/dashboard/station": ["station-details", "stations-module", "stations"],
   "/dashboard/users": ["ev_users"],
   "/dashboard/analytics": ["sessions", "stations"],
   "/dashboard/push": ["push_notifications"],
@@ -61,10 +61,21 @@ export default function DashboardLayout() {
         : pathname.split("/").slice(0, 3).join("/");
     const queryKeys =
       REFRESH_QUERY_KEYS_BY_PATH[basePath] ?? ["sessions", "stations"];
+
+    // Na página de detalhes da estação, usar a chave exata incluindo stationId
+    const stationIdMatch = pathname.match(/^\/dashboard\/station\/([^/]+)$/);
+    const stationId = stationIdMatch?.[1];
+    const refetchKeys: (string | number)[][] =
+      basePath === "/dashboard/station" && stationId
+        ? [["station-details", stationId], ...queryKeys.filter((k) => k !== "station-details").map((k) => [k])]
+        : queryKeys.map((k) => [k]);
+
     setIsRefreshing(true);
     try {
       const refetchPromise = Promise.all(
-        queryKeys.map((key) => queryClient.refetchQueries({ queryKey: [key] }))
+        refetchKeys.map((key) =>
+          queryClient.refetchQueries({ queryKey: key })
+        )
       );
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("timeout")), REFRESH_TIMEOUT_MS)
