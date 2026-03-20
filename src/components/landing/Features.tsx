@@ -30,7 +30,7 @@ const features = [
 
 export default function Features() {
   return (
-    <section className="py-12 sm:py-16 lg:py-24 px-4 sm:px-6">
+    <section id="features" className="py-12 sm:py-16 lg:py-24 px-4 sm:px-6">
       <div className="max-w-6xl mx-auto">
         <h2 className="text-xl sm:text-3xl lg:text-4xl font-bold text-center text-foreground mb-8 sm:mb-10 leading-tight">
           Transformando pontos de recarga em ativos estratégicos.
