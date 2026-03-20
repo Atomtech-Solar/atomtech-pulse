@@ -4,13 +4,13 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, R
 
 export default function Analytics() {
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-display font-bold">Analytics</h1>
+        <h1 className="text-xl sm:text-2xl font-display font-bold">Analytics</h1>
         <p className="text-muted-foreground text-sm mt-1">Métricas detalhadas de uso</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         {[
           { label: 'Duração Total', value: '1.240 min' },
           { label: 'Recargas', value: '156' },
@@ -26,7 +26,7 @@ export default function Analytics() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card className="border-border bg-card">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Consumo Semanal (kWh)</CardTitle></CardHeader>
           <CardContent>

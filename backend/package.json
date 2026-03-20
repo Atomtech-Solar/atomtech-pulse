@@ -1,0 +1,31 @@
+{
+  "name": "atomtech-backend",
+  "version": "1.0.0",
+  "description": "Backend API, OCPP e WebSocket Realtime",
+  "main": "dist/server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "ts-node -r dotenv/config src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test:charger": "node test-charger.js",
+    "simulate:charger": "node scripts/test_charger.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.97.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "typescript": "^5.9.3",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.16.5",
+    "@types/ws": "^8.5.13",
+    "ts-node": "^10.9.2"
+  }
+}

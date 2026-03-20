@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useStations, useSessions, useEvUsers } from "@/hooks/useSupabaseData";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Users, Activity, Zap, BatteryCharging, DollarSign, Leaf, TreePine, Gauge } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -8,9 +9,18 @@ export default function Overview() {
   const { user, selectedCompanyId } = useAuth();
   const role = user?.role ?? "viewer";
 
-  const { data: stations = [] } = useStations();
-  const { data: sessions = [] } = useSessions();
-  const { data: evUsers = [] } = useEvUsers();
+  const { data: stations = [], isLoading: stationsLoading, isError: stationsError, error: stationsErrorObj, refetch: refetchStations } = useStations();
+  const { data: sessions = [], isLoading: sessionsLoading, isError: sessionsError, error: sessionsErrorObj, refetch: refetchSessions } = useSessions();
+  const { data: evUsers = [], isLoading: evUsersLoading, isError: evUsersError, error: evUsersErrorObj, refetch: refetchEvUsers } = useEvUsers();
+
+  const isLoading = stationsLoading || sessionsLoading || evUsersLoading;
+  const isError = stationsError || sessionsError || evUsersError;
+  const errorMessage = stationsErrorObj?.message ?? sessionsErrorObj?.message ?? evUsersErrorObj?.message ?? "Falha ao carregar dados.";
+  const refetchAll = () => {
+    refetchStations();
+    refetchSessions();
+    refetchEvUsers();
+  };
 
   const totalKwh = stations.reduce((s, st) => s + (st.total_kwh ?? 0), 0);
   const totalRevenue = sessions.reduce((s, se) => s + (se.revenue ?? 0), 0);
@@ -33,17 +43,54 @@ export default function Overview() {
     { label: 'Árvores Equiv.', value: treesEquiv, icon: TreePine, color: 'text-chart-2' },
   ];
 
+  if (isLoading) {
+    return (
+      <div className="space-y-4 sm:space-y-6 animate-fade-in">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-display font-bold">Visão Geral</h1>
+          <p className="text-muted-foreground text-sm mt-1">Resumo operacional</p>
+        </div>
+        <Card className="border-border">
+          <CardContent className="py-12 flex flex-col items-center justify-center gap-3">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-muted-foreground">Carregando dados...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="space-y-4 sm:space-y-6 animate-fade-in">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-display font-bold">Visão Geral</h1>
+          <p className="text-muted-foreground text-sm mt-1">Resumo operacional</p>
+        </div>
+        <Card className="border-border border-destructive/30">
+          <CardContent className="py-12 text-center">
+            <p className="text-destructive font-medium mb-2">Falha ao carregar dados.</p>
+            <p className="text-sm text-muted-foreground mb-4">{errorMessage}</p>
+            <Button variant="outline" onClick={refetchAll}>
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-display font-bold">Visão Geral</h1>
+        <h1 className="text-xl sm:text-2xl font-display font-bold">Visão Geral</h1>
         <p className="text-muted-foreground text-sm mt-1">
           {role === "super_admin" && !selectedCompanyId ? "Consolidado de todas as empresas" : "Resumo operacional"}
         </p>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-3 sm:gap-4">
         {kpis.map(kpi => (
           <Card key={kpi.label} className="border-border bg-card hover:glow-primary transition-shadow duration-300">
             <CardContent className="p-4">
@@ -58,7 +105,7 @@ export default function Overview() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card className="border-border bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Consumo & Receita por Dia</CardTitle>

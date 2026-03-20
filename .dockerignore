@@ -1,0 +1,16 @@
+# Deploy do backend
+node_modules
+backend/node_modules
+backend/dist
+.git
+*.log
+.env
+.env.*
+!.env.example
+
+# Ignora frontend
+src
+public
+vite.config.ts
+index.html
+*.md

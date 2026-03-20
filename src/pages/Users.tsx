@@ -3,21 +3,40 @@ import { useEvUsers } from "@/hooks/useSupabaseData";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 
 export default function UsersPage() {
   const { user, selectedCompanyId } = useAuth();
-  const { data: evUsers = [] } = useEvUsers();
+  const { data: evUsers = [], isLoading, isError, error, refetch } = useEvUsers();
   const data = evUsers;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-display font-bold">Usuários</h1>
+        <h1 className="text-xl sm:text-2xl font-display font-bold">Usuários</h1>
         <p className="text-muted-foreground text-sm mt-1">{data.length} usuários cadastrados</p>
       </div>
-      <Card className="border-border bg-card">
-        <CardContent className="p-0">
+      {isLoading ? (
+        <Card className="border-border">
+          <CardContent className="py-12 flex flex-col items-center justify-center gap-3">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-muted-foreground">Carregando usuários...</p>
+          </CardContent>
+        </Card>
+      ) : isError ? (
+        <Card className="border-border border-destructive/30">
+          <CardContent className="py-12 text-center">
+            <p className="text-destructive font-medium mb-2">Falha ao carregar usuários.</p>
+            <p className="text-sm text-muted-foreground mb-4">{error instanceof Error ? error.message : "Tente novamente."}</p>
+            <Button variant="outline" onClick={() => refetch()}>
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+      <Card className="border-border bg-card overflow-hidden">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
@@ -56,6 +75,7 @@ export default function UsersPage() {
           </Table>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

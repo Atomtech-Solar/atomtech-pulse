@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   isSupabaseAuthError,
   dispatchSessionInvalid,
+  logPermissionError,
 } from "@/lib/supabaseAuthUtils";
 import {
   companies,
@@ -17,9 +18,15 @@ import {
 } from "@/data/mockData";
 
 const QUERY_TIMEOUT_MS = 12000;
+/** 1 min — evita refetch excessivo ao navegar; dados ainda refetch em mount quando stale. */
+const STALE_TIME_MS = 60000;
 
-function handleQueryError(error: unknown): never {
+function handleQueryError(context: string, error: unknown): never {
   if (isSupabaseAuthError(error)) {
+    logPermissionError(context, error);
+    dispatchSessionInvalid();
+  }
+  if (error instanceof Error && /tempo limite|timeout/i.test(error.message)) {
     dispatchSessionInvalid();
   }
   throw error;
@@ -40,25 +47,31 @@ function isMockAuth(user: { id?: number | string } | null): boolean {
 }
 
 export function useCompanies() {
-  const { user } = useAuth();
+  const { user, isSessionReady } = useAuth();
+  const useSupabase = !isMockAuth(user);
   return useQuery({
     queryKey: ["companies", user?.id],
+    enabled: isSessionReady && !!user,
     retry: 1,
+    staleTime: STALE_TIME_MS,
     queryFn: async () => {
       if (isMockAuth(user)) return companies;
       const promise = supabase.from("companies").select("*").order("name");
       const { data, error } = await withTimeout(promise, QUERY_TIMEOUT_MS);
-      if (error) handleQueryError(error);
+      if (error) handleQueryError("useCompanies (companies)", error);
       return data as Tables<"companies">[];
     },
   });
 }
 
 export function useStations() {
-  const { user, selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
   const role = user?.role ?? "viewer";
+  const useSupabase = !isMockAuth(user);
   return useQuery({
-    queryKey: ["stations", role, selectedCompanyId],
+    queryKey: ["stations", user?.id, role, selectedCompanyId],
+    enabled: isSessionReady && !!user,
+    staleTime: STALE_TIME_MS,
     queryFn: async () => {
       if (isMockAuth(user)) {
         return filterByCompany(stations, selectedCompanyId, role);
@@ -67,18 +80,21 @@ export function useStations() {
       if (user?.role === "super_admin" && selectedCompanyId) {
         query = query.eq("company_id", selectedCompanyId);
       }
-      const { data, error } = await query;
-      if (error) handleQueryError(error);
+      const { data, error } = await withTimeout(query, QUERY_TIMEOUT_MS);
+      if (error) handleQueryError("useStations (stations)", error);
       return data as (Tables<"stations"> & { station_connectors: Tables<"station_connectors">[] })[];
     },
   });
 }
 
 export function useSessions() {
-  const { user, selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
   const role = user?.role ?? "viewer";
+  const useSupabase = !isMockAuth(user);
   return useQuery({
-    queryKey: ["sessions", role, selectedCompanyId],
+    queryKey: ["sessions", user?.id, role, selectedCompanyId],
+    enabled: isSessionReady && !!user,
+    staleTime: STALE_TIME_MS,
     queryFn: async () => {
       if (isMockAuth(user)) {
         return filterByCompany(sessions, selectedCompanyId, role);
@@ -87,18 +103,21 @@ export function useSessions() {
       if (user?.role === "super_admin" && selectedCompanyId) {
         query = query.eq("company_id", selectedCompanyId);
       }
-      const { data, error } = await query;
-      if (error) handleQueryError(error);
+      const { data, error } = await withTimeout(query, QUERY_TIMEOUT_MS);
+      if (error) handleQueryError("useSessions (v_sessions_list)", error);
       return data as Tables<"v_sessions_list">[];
     },
   });
 }
 
 export function useEvUsers() {
-  const { user, selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
   const role = user?.role ?? "viewer";
+  const useSupabase = !isMockAuth(user);
   return useQuery({
-    queryKey: ["ev_users", role, selectedCompanyId],
+    queryKey: ["ev_users", user?.id, role, selectedCompanyId],
+    enabled: isSessionReady && !!user,
+    staleTime: STALE_TIME_MS,
     queryFn: async () => {
       if (isMockAuth(user)) {
         return filterByCompany(evUsers, selectedCompanyId, role);
@@ -107,18 +126,21 @@ export function useEvUsers() {
       if (user?.role === "super_admin" && selectedCompanyId) {
         query = query.eq("company_id", selectedCompanyId);
       }
-      const { data, error } = await query;
-      if (error) handleQueryError(error);
+      const { data, error } = await withTimeout(query, QUERY_TIMEOUT_MS);
+      if (error) handleQueryError("useEvUsers (ev_users)", error);
       return data as Tables<"ev_users">[];
     },
   });
 }
 
 export function useVouchers() {
-  const { user, selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
   const role = user?.role ?? "viewer";
+  const useSupabase = !isMockAuth(user);
   return useQuery({
-    queryKey: ["vouchers", role, selectedCompanyId],
+    queryKey: ["vouchers", user?.id, role, selectedCompanyId],
+    enabled: isSessionReady && !!user,
+    staleTime: STALE_TIME_MS,
     queryFn: async () => {
       if (isMockAuth(user)) {
         return filterByCompany(vouchers, selectedCompanyId, role);
@@ -127,18 +149,21 @@ export function useVouchers() {
       if (user?.role === "super_admin" && selectedCompanyId) {
         query = query.eq("company_id", selectedCompanyId);
       }
-      const { data, error } = await query;
-      if (error) handleQueryError(error);
+      const { data, error } = await withTimeout(query, QUERY_TIMEOUT_MS);
+      if (error) handleQueryError("useVouchers (vouchers)", error);
       return data as Tables<"vouchers">[];
     },
   });
 }
 
 export function usePushNotifications() {
-  const { user, selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
   const role = user?.role ?? "viewer";
+  const useSupabase = !isMockAuth(user);
   return useQuery({
-    queryKey: ["push_notifications", role, selectedCompanyId],
+    queryKey: ["push_notifications", user?.id, role, selectedCompanyId],
+    enabled: isSessionReady && !!user,
+    staleTime: STALE_TIME_MS,
     queryFn: async () => {
       if (isMockAuth(user)) {
         return filterByCompany(pushNotifications, selectedCompanyId, role);
@@ -147,44 +172,50 @@ export function usePushNotifications() {
       if (user?.role === "super_admin" && selectedCompanyId) {
         query = query.eq("company_id", selectedCompanyId);
       }
-      const { data, error } = await query;
-      if (error) handleQueryError(error);
+      const { data, error } = await withTimeout(query, QUERY_TIMEOUT_MS);
+      if (error) handleQueryError("usePushNotifications (push_notifications)", error);
       return data as Tables<"push_notifications">[];
     },
   });
 }
 
 export function useCompanySettings() {
-  const { selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
+  const useSupabase = !isMockAuth(user);
   return useQuery({
-    queryKey: ["company_settings", selectedCompanyId],
-    enabled: !!selectedCompanyId,
+    queryKey: ["company_settings", user?.id, selectedCompanyId],
+    enabled: isSessionReady && !!user && !!selectedCompanyId,
+    staleTime: STALE_TIME_MS,
     queryFn: async () => {
       if (!selectedCompanyId) return null;
-      const { data, error } = await supabase
+      const promise = supabase
         .from("company_settings")
         .select("*")
         .eq("company_id", selectedCompanyId)
         .single();
-      if (error) handleQueryError(error);
+      const { data, error } = await withTimeout(promise, QUERY_TIMEOUT_MS);
+      if (error) handleQueryError("useCompanySettings (company_settings)", error);
       return data as Tables<"company_settings">;
     },
   });
 }
 
 export function useTariffs() {
-  const { selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
+  const useSupabase = !isMockAuth(user);
   return useQuery({
-    queryKey: ["tariffs", selectedCompanyId],
-    enabled: !!selectedCompanyId,
+    queryKey: ["tariffs", user?.id, selectedCompanyId],
+    enabled: isSessionReady && !!user && !!selectedCompanyId,
+    staleTime: STALE_TIME_MS,
     queryFn: async () => {
       if (!selectedCompanyId) return [];
-      const { data, error } = await supabase
+      const promise = supabase
         .from("tariffs")
         .select("*")
         .eq("company_id", selectedCompanyId)
         .order("weekday");
-      if (error) handleQueryError(error);
+      const { data, error } = await withTimeout(promise, QUERY_TIMEOUT_MS);
+      if (error) handleQueryError("useTariffs (tariffs)", error);
       return data as Tables<"tariffs">[];
     },
   });
@@ -192,29 +223,33 @@ export function useTariffs() {
 
 /** Perfis para Admin Supremo (Landing Page Analytics). Só habilitado para super_admin. */
 export function useProfilesForAdmin() {
-  const { user } = useAuth();
+  const { user, isSessionReady } = useAuth();
   const isSuperAdmin = user?.role === "super_admin";
   return useQuery({
-    queryKey: ["profiles-admin"],
-    enabled: !!isSuperAdmin,
+    queryKey: ["profiles-admin", user?.id],
+    enabled: isSessionReady && !!user && !!isSuperAdmin,
     retry: 1,
+    staleTime: STALE_TIME_MS,
     queryFn: async () => {
       const promise = supabase
         .from("profiles")
         .select("*, company:companies(name)")
         .order("created_at", { ascending: false });
       const { data, error } = await withTimeout(promise, QUERY_TIMEOUT_MS);
-      if (error) handleQueryError(error);
+      if (error) handleQueryError("useProfilesForAdmin (profiles+companies)", error);
       return data as (Tables<"profiles"> & { company: { name: string } | null })[];
     },
   });
 }
 
 export function useStationRevenue() {
-  const { user, selectedCompanyId } = useAuth();
+  const { user, selectedCompanyId, isSessionReady } = useAuth();
   const role = user?.role ?? "viewer";
+  const useSupabase = !isMockAuth(user);
   return useQuery({
-    queryKey: ["station_revenue", role, selectedCompanyId],
+    queryKey: ["station_revenue", user?.id, role, selectedCompanyId],
+    enabled: isSessionReady && !!user,
+    staleTime: STALE_TIME_MS,
     queryFn: async () => {
       if (isMockAuth(user)) {
         const filtered = filterByCompany(sessions, selectedCompanyId, role);
@@ -250,8 +285,8 @@ export function useStationRevenue() {
       if (user?.role === "super_admin" && selectedCompanyId) {
         query = query.eq("company_id", selectedCompanyId);
       }
-      const { data, error } = await query;
-      if (error) handleQueryError(error);
+      const { data, error } = await withTimeout(query, QUERY_TIMEOUT_MS);
+      if (error) handleQueryError("useStationRevenue (v_station_revenue)", error);
       return data as Tables<"v_station_revenue">[];
     },
   });

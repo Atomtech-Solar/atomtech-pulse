@@ -1,8 +1,9 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useSessions } from "@/hooks/useSupabaseData";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
 const statusMap = {
   active: { label: "Ativa", className: "bg-accent/20 text-accent border-accent/30" },
@@ -12,17 +13,37 @@ const statusMap = {
 
 export default function Sessions() {
   const { user, selectedCompanyId } = useAuth();
-  const { data: sessions = [] } = useSessions();
+  const { data: sessions = [], isLoading, isError, error, refetch } = useSessions();
   const data = sessions;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-display font-bold">Sessões</h1>
+        <h1 className="text-xl sm:text-2xl font-display font-bold">Sessões</h1>
         <p className="text-muted-foreground text-sm mt-1">Histórico de sessões de recarga</p>
       </div>
-      <Card className="border-border bg-card">
-        <CardContent className="p-0">
+      {isLoading ? (
+        <Card className="border-border">
+          <CardContent className="py-12 flex flex-col items-center justify-center gap-3">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-muted-foreground">Carregando sessões...</p>
+          </CardContent>
+        </Card>
+      ) : isError ? (
+        <Card className="border-border border-destructive/30">
+          <CardContent className="py-12 text-center">
+            <p className="text-destructive font-medium mb-2">Falha ao carregar sessões.</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              {error instanceof Error ? error.message : "Tente novamente."}
+            </p>
+            <Button variant="outline" onClick={() => refetch()}>
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+      <Card className="border-border bg-card overflow-hidden">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
@@ -69,6 +90,7 @@ export default function Sessions() {
           </Table>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }
