@@ -31,10 +31,7 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      console.log("[Login] Iniciando login...", { email: email.replace(/.(?=@)/g, "*") });
-      const t0 = performance.now();
       const { error: loginError, redirectPath: path } = await loginWithSupabase(email, password);
-      console.log("[Login] loginWithSupabase retornou em", (performance.now() - t0).toFixed(0), "ms", { hasError: !!loginError, redirectPath: path });
       if (loginError) {
         setError(loginError);
         return;
@@ -141,11 +138,7 @@ export default function Login() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
@@ -164,6 +157,13 @@ export default function Login() {
               {loading ? "Entrando..." : "Entrar"}
             </Button>
           </form>
+
+          <p className="text-sm text-muted-foreground text-center mt-6">
+            Não tem conta?{" "}
+            <Link to="/#auth" className="text-primary hover:underline">
+              Cadastrar
+            </Link>
+          </p>
         </div>
       </div>
     </div>

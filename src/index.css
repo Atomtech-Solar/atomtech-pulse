@@ -51,6 +51,14 @@
     --gradient-energy: linear-gradient(135deg, var(--energy-1) 0%, var(--energy-4) 35%, var(--energy-6) 65%, var(--energy-8) 100%);
     --gradient-energy-soft: linear-gradient(145deg, rgba(255, 42, 0, 0.18) 0%, rgba(255, 106, 0, 0.08) 100%);
     --gradient-surface: linear-gradient(145deg, #fafafa 0%, #f5f5f5 100%);
+    --landing-section-bg: #030712; /* Fundo azulado (patrocinadores, sobre nós, celulares) */
+    /* Paleta Landing */
+    --landing-green: #14AB5D;
+    --landing-black: #000000;
+    --landing-white: #ffffff;
+    --landing-bg: #030712;
+    --landing-sub: #121212;
+    --landing-sub-text: #a1a1aa;
   }
 
   .dark {
@@ -92,6 +100,9 @@
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
   * {
     @apply border-border;
   }
@@ -176,6 +187,188 @@
 
   .gradient-card {
     background: var(--gradient-surface);
+  }
+
+  /* Faixa de parceiros - marquee infinito (4 cópias = -25% para loop seamless) */
+  @keyframes marquee-ltr {
+    0% { transform: translateX(-25%); }
+    100% { transform: translateX(0); }
+  }
+  @keyframes marquee-rtl {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-25%); }
+  }
+  /* Hero partners - 3 cópias = -33.33% para loop seamless */
+  @keyframes hero-marquee-ltr {
+    0% { transform: translateX(-33.333%); }
+    100% { transform: translateX(0); }
+  }
+  @keyframes hero-float {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(12px, -15px); }
+  }
+  @keyframes hero-bubble-sway {
+    0%, 100% { transform: translateX(-20%) translateY(0); }
+    50% { transform: translateX(20%) translateY(-5%); }
+  }
+  @keyframes hero-bubble-sway-alt {
+    0%, 100% { transform: translateX(15%) translateY(0); }
+    50% { transform: translateX(-15%) translateY(8%); }
+  }
+  @keyframes hero-light-sweep {
+    0%, 100% { transform: translateX(-30%) scale(1); opacity: 0.5; }
+    50% { transform: translateX(30%) scale(1.1); opacity: 0.8; }
+  }
+  @keyframes hero-light-sweep-reverse {
+    0%, 100% { transform: translateX(30%) scale(1); opacity: 0.5; }
+    50% { transform: translateX(-30%) scale(1.1); opacity: 0.8; }
+  }
+
+  /* Depoimentos - marquee vertical infinito (2 cópias = -50% para loop) */
+  @keyframes marquee-vertical {
+    0% { transform: translateY(-50%); }
+    100% { transform: translateY(0); }
+  }
+  .animate-marquee-vertical {
+    animation: marquee-vertical 35s linear infinite;
+  }
+
+  /* Bloco título depoimentos - notch no canto */
+  .testimonial-title-block {
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0 100%);
+    border-radius: 0 0 1.5rem 0;
+  }
+
+  .testimonial-card {
+    width: 100%;
+  }
+
+  .partners-item {
+    color: var(--landing-sub-text);
+    transition: color 0.3s ease, transform 0.3s ease;
+  }
+  .partners-item:hover {
+    color: var(--landing-white);
+    transform: scale(1.05);
+  }
+
+  /* Hero buttons */
+  .hero-btn-primary {
+    background: linear-gradient(135deg, #14AB5D 0%, #0d9666 100%);
+    box-shadow: 0 0 24px rgba(20, 171, 93, 0.45);
+    border: 2px solid transparent;
+  }
+  .hero-btn-primary:hover {
+    background: transparent !important;
+    border-color: #ffffff !important;
+    box-shadow: none;
+  }
+  .hero-btn-secondary:hover {
+    background: linear-gradient(135deg, #14AB5D 0%, #0d9666 100%) !important;
+    box-shadow: 0 0 24px rgba(20, 171, 93, 0.45);
+    border-color: transparent !important;
+  }
+
+  /* Cards "O que fazemos" */
+  .service-card {
+    border: 1px solid #1f1f1f;
+    transition: border-color 0.3s ease;
+  }
+  .service-card.service-card-hover {
+    border-color: rgba(20, 171, 93, 0.5);
+  }
+  .service-card-bg {
+    background-color: #121212;
+    transition: background 0.3s ease;
+  }
+  .service-card.service-card-hover .service-card-bg {
+    background: linear-gradient(135deg, rgba(20, 171, 93, 0.5) 0%, rgba(20, 171, 93, 0.3) 50%, rgba(20, 171, 93, 0.2) 100%), #121212;
+  }
+
+  /* Órbitas - Experiência do Usuário (Phone 2) */
+  @keyframes orbit-rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .orbit {
+    position: absolute;
+    width: 110px;
+    height: 150px;
+    border: 1px solid rgba(20, 171, 93, 0.4);
+    border-radius: 50%;
+    animation: orbit-rotate 8s linear infinite;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    box-shadow: 0 0 20px rgba(20, 171, 93, 0.08);
+  }
+  .orbit-1 { transform: rotate(-20deg); }
+  .orbit-2 { transform: rotate(30deg); animation-duration: 10s; animation-direction: reverse; }
+  .orbit .orbit-dot {
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #14AB5D;
+    box-shadow: 0 0 12px #14AB5D, 0 0 24px rgba(20, 171, 93, 0.5), inset 0 0 4px rgba(255,255,255,0.3);
+  }
+
+  /* Landing Auth - formulário de cadastro com paleta verde */
+  .landing-auth .gradient-primary {
+    background: linear-gradient(135deg, #14AB5D 0%, #0d9666 100%);
+  }
+  .landing-auth .glow-primary {
+    box-shadow: 0 0 20px -6px rgba(20, 171, 93, 0.5);
+  }
+  .landing-auth .text-primary {
+    color: #14AB5D !important;
+  }
+  .landing-auth .border-primary,
+  .landing-auth .border-primary\/50,
+  .landing-auth .hover\:border-primary\/50:hover {
+    border-color: rgba(20, 171, 93, 0.5) !important;
+  }
+  .landing-auth .has-\[\:checked\]\:border-primary:has(:checked),
+  .landing-auth .has-\[\:checked\]\:bg-primary\/5:has(:checked) {
+    border-color: #14AB5D !important;
+    background-color: rgba(20, 171, 93, 0.05) !important;
+  }
+  .landing-auth .border-primary.bg-primary\/10,
+  .landing-auth .border-primary.bg-primary\/10 * {
+    border-color: #14AB5D !important;
+  }
+  .landing-auth .bg-primary\/10 {
+    background-color: rgba(20, 171, 93, 0.1) !important;
+  }
+  .landing-auth .bg-card {
+    background-color: #121212 !important;
+    border-color: rgba(255,255,255,0.08) !important;
+  }
+  .landing-auth .text-foreground {
+    color: #ffffff !important;
+  }
+  .landing-auth .text-muted-foreground {
+    color: #a1a1aa !important;
+  }
+  .landing-auth .border-border {
+    border-color: rgba(255,255,255,0.12) !important;
+  }
+  .landing-auth input,
+  .landing-auth .bg-background {
+    background-color: #1a1a1a !important;
+    border-color: rgba(255,255,255,0.12) !important;
+    color: #ffffff !important;
+  }
+  .landing-auth input::placeholder {
+    color: rgba(161, 161, 170, 0.6);
+  }
+  .landing-auth button[type="submit"] {
+    background: linear-gradient(135deg, #14AB5D 0%, #0d9666 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 20px -6px rgba(20, 171, 93, 0.5);
   }
 
   /* Compatibilidade com classes existentes */

@@ -1,91 +1,124 @@
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Zap } from "lucide-react";
 
-// Substitua pelas fotos reais dos fundadores em /public/img/founders/
-const FOUNDERS = [
-  { name: "Fundador 1", avatar: "https://ui-avatars.com/api/?name=F1&size=80&background=ff5e00&color=fff" },
-  { name: "Fundador 2", avatar: "https://ui-avatars.com/api/?name=F2&size=80&background=ff5e00&color=fff" },
-  { name: "Fundador 3", avatar: "https://ui-avatars.com/api/?name=F3&size=80&background=ff5e00&color=fff" },
-  { name: "Fundador 4", avatar: "https://ui-avatars.com/api/?name=F4&size=80&background=ff5e00&color=fff" },
+// Imagem na pasta img na raiz do projeto – copie para public/img/ para build de produção
+const HERO_BG = new URL("../../../img/fundo-azul.png", import.meta.url).href;
+
+const PARTNERS = [
+  "CASA ÉRGO",
+  "COC",
+  "GIRAFFAS",
+  "OMODA & JAECOO",
+  "MARGRAN",
+  "ACERHOME",
+  "RISEON",
+  "HIKVISION",
+  "IP77",
 ];
 
-const SPONSORS = [
-  { name: "Atom Tech", icon: Zap },
-  { name: "Parceiro 1", icon: Zap },
-  { name: "Parceiro 2", icon: Zap },
-  { name: "Parceiro 3", icon: Zap },
-];
+function HeroPartnersStrip() {
+  const Chunk = () => (
+    <div className="flex items-center gap-6 sm:gap-10 shrink-0 px-6 sm:px-10">
+      {PARTNERS.map((name, i) => (
+        <span key={i} className="flex items-center gap-6 sm:gap-10 shrink-0">
+          <span className="hero-partner-item whitespace-nowrap text-sm sm:text-base text-white/70">
+            {name}
+          </span>
+          {i < PARTNERS.length - 1 && (
+            <span className="text-white/30 shrink-0">•</span>
+          )}
+        </span>
+      ))}
+    </div>
+  );
+
+  return (
+    <div
+      className="relative w-full overflow-hidden rounded-lg"
+      style={{
+        minHeight: "72px",
+        maskImage: "linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%)",
+        WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%)",
+      }}
+    >
+      <div className="flex items-center overflow-hidden w-full">
+        <div
+          className="flex items-center w-max"
+          style={{
+            animation: "hero-marquee-ltr 40s linear infinite",
+          }}
+        >
+          <Chunk />
+          <Chunk />
+          <Chunk />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Hero() {
   return (
-    <section className="relative h-[95vh] flex flex-col items-center px-4 sm:px-6 text-center overflow-hidden">
-      {/* Background: mountain image with overlay for text readability */}
+    <section
+      className="relative overflow-hidden flex flex-col -mt-24 sm:-mt-28"
+      style={{ minHeight: "95vh", background: "#000000" }}
+    >
+      {/* Imagem de fundo – cobre a tela toda mantendo proporção (sem distorcer) */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: "url(/hero-mountains.png)" }}
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url(${HERO_BG})` }}
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-transparent to-black/70" />
-      <div className="absolute inset-0 bg-black/20" />
+      {/* Overlay escuro para legibilidade do texto */}
+      <div className="absolute inset-0 z-0 bg-black/40" />
 
-      <div className="relative z-10 w-full h-full max-w-3xl mx-auto flex flex-col min-h-0">
-        {/* Topo: time/equipe */}
-        <div className="shrink-0 pt-8 sm:pt-12 flex justify-center">
-          <div className="flex -space-x-3">
-            {FOUNDERS.map((founder, i) => (
-              <img
-                key={i}
-                src={founder.avatar}
-                alt={founder.name}
-                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-white/90 object-cover shadow-lg ring-2 ring-white/50"
-              />
-            ))}
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-white/90 bg-white/80 flex items-center justify-center text-xs font-semibold text-foreground shadow-lg ring-2 ring-white/50 -ml-3">
-              +800
-            </div>
-          </div>
+      {/* Conteúdo central */}
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-0 text-center">
+        {/* Badge */}
+        <div
+          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6 sm:mb-8 text-xs sm:text-sm font-medium border border-white/10 bg-white/5 text-[#a1a1aa]"
+        >
+          <span className="w-2 h-2 rounded-full bg-[#14AB5D] animate-pulse" />
+          Onboarding aberto
         </div>
 
-        {/* Centro: título, texto e botões (ocupam o espaço do meio e ficam centralizados) */}
-        <div className="flex-1 flex flex-col items-center justify-center text-center w-full min-h-0 py-6">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-foreground drop-shadow-sm mb-4">
-            TOP-UP
-          </h1>
+        {/* Título */}
+        <h1
+          className="font-bold tracking-tight mb-4 sm:mb-6 max-w-4xl"
+          style={{
+            fontSize: "clamp(2rem, 5.5vw, 4rem)",
+            lineHeight: 1.1,
+            color: "#FFFFFF",
+          }}
+        >
+          Recarga elétrica, agora como experiência
+        </h1>
 
-          <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed mb-8">
-            Encontre os melhores pontos de recarga, acompanhe suas sessões e conecte-se com a rede de mobilidade elétrica—tudo em um só lugar.
+        {/* Subtexto */}
+        <p className="text-base sm:text-lg text-[#a1a1aa] max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed">
+          A primeira rede gamificada de recarga para veículos elétricos do Brasil
+        </p>
+
+        {/* Botões */}
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-10 sm:mb-14">
+          <Link
+            to="/cadastro"
+            className="hero-btn-primary inline-flex items-center justify-center px-8 py-3.5 rounded-full font-semibold text-white transition-all duration-300"
+          >
+            Começar agora
+          </Link>
+          <Link
+            to="#features"
+            className="hero-btn-secondary inline-flex items-center justify-center px-8 py-3.5 rounded-full font-semibold text-white border-2 border-white/40 bg-transparent transition-all duration-300 hover:border-[#14AB5D]"
+          >
+            Ver como funciona
+          </Link>
+        </div>
+
+        {/* Mini título + faixa de parceiros (janela limitada) */}
+        <div className="w-full max-w-4xl mx-auto px-4 sm:px-6">
+          <p className="text-xs sm:text-sm text-[#a1a1aa]/80 font-medium mb-4 sm:mb-5 text-center">
+            Mais de <span className="text-white font-semibold">10+</span> empresas são nossas parceiras
           </p>
-
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center">
-            <Button
-              asChild
-              variant="secondary"
-              size="lg"
-              className="rounded-full px-6 sm:px-8 h-11 sm:h-12 text-foreground bg-white hover:bg-white/90 shadow-lg"
-            >
-              <Link to="#features">Saiba mais</Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              className="rounded-full px-6 sm:px-8 h-11 sm:h-12 btn-energy-primary shadow-lg"
-            >
-              <Link to="/cadastro">Começar sua jornada</Link>
-            </Button>
-          </div>
-        </div>
-
-        {/* Rodapé: parcerias */}
-        <div className="shrink-0 flex flex-wrap items-center justify-center gap-6 sm:gap-10 py-8 sm:py-10 border-t border-white/20 w-full">
-          {SPONSORS.map((sponsor, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-2 text-white font-medium opacity-90"
-            >
-              <sponsor.icon className="w-5 h-5 text-[#ff5e00]" />
-              <span className="text-sm sm:text-base">{sponsor.name}</span>
-            </div>
-          ))}
+          <HeroPartnersStrip />
         </div>
       </div>
     </section>
