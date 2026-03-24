@@ -2,7 +2,8 @@ import { useState } from "react";
 import { ArrowUpRight, Quote } from "lucide-react";
 import { Star } from "lucide-react";
 
-const HERO_IMAGE = "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&h=1000&fit=crop";
+const HERO_IMAGE =
+  "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=900&h=900&fit=crop";
 
 const TESTIMONIALS = [
   {
@@ -60,7 +61,7 @@ function TestimonialCard({ text, name, role, date, avatar }: (typeof TESTIMONIAL
       </div>
 
       {/* Texto */}
-      <p className="text-white/90 text-sm leading-relaxed mb-5 min-h-[72px]">{text}</p>
+      <p className="text-white/90 text-sm leading-relaxed mb-5 min-h-0 md:min-h-[72px]">{text}</p>
 
       {/* Avatar + Nome + Data */}
       <div className="flex items-center gap-3">
@@ -106,41 +107,47 @@ export default function Testimonials() {
   const [isPaused, setIsPaused] = useState(false);
 
   return (
-    <section id="depoimentos" className="py-16 sm:py-24 px-4 sm:px-6 bg-black">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12 items-stretch">
-          {/* Esquerda: bloco grande com foto + título em cima */}
-          <div className="relative rounded-3xl overflow-hidden min-h-[420px] lg:min-h-[520px]">
-            <img
-              src={HERO_IMAGE}
-              alt="Equipe e mobilidade elétrica"
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-            {/* Overlay gradiente sutil */}
-            <div
-              className="absolute inset-0 opacity-60"
-              style={{
-                background: "linear-gradient(135deg, rgba(20,171,93,0.15) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.6) 100%)",
-              }}
-            />
-
-            {/* Bloco do título com efeito notch (top-left) */}
-            <div className="absolute top-0 left-0 p-6 sm:p-8 z-10">
+    <section
+      id="depoimentos"
+      className="flex flex-col justify-center items-center py-16 sm:py-24 px-4 sm:px-6 bg-black"
+    >
+      <div className="w-full max-w-md sm:max-w-xl md:max-w-2xl lg:max-w-6xl mx-auto flex flex-col items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12 items-start w-full lg:max-w-none mx-auto">
+          {/* Esquerda: foto quadrada — mesma largura da coluna das avaliações (grid) */}
+          <div className="w-full">
+            <div className="relative w-full aspect-square rounded-3xl overflow-hidden">
+              <img
+                src={HERO_IMAGE}
+                alt="Equipe e mobilidade elétrica"
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              {/* Overlay gradiente sutil */}
               <div
-                className="testimonial-title-block flex items-center gap-3 px-6 py-4"
+                className="absolute inset-0 opacity-60"
                 style={{
-                  background: "rgba(0,0,0,0.9)",
+                  background:
+                    "linear-gradient(135deg, rgba(20,171,93,0.15) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.6) 100%)",
                 }}
-              >
-                <h2 className="text-xl sm:text-2xl font-bold text-white">
-                  Depoimentos dos nossos{" "}
-                  <span className="text-[#14AB5D]">usuários</span>
-                </h2>
+              />
+
+              {/* Bloco do título retangular (notch) */}
+              <div className="absolute top-0 left-0 p-4 sm:p-5 z-10">
                 <div
-                  className="flex-shrink-0 w-10 h-10 rounded-full bg-[#14AB5D] flex items-center justify-center"
-                  style={{ boxShadow: "0 0 16px rgba(20,171,93,0.5)" }}
+                  className="testimonial-title-block flex flex-wrap items-center gap-2 sm:gap-3 px-4 py-3 sm:px-5 sm:py-4 max-w-[min(100%,calc(100%-1rem))]"
+                  style={{
+                    background: "rgba(0,0,0,0.9)",
+                  }}
                 >
-                  <ArrowUpRight className="w-5 h-5 text-white" />
+                  <h2 className="text-sm sm:text-base lg:text-lg font-bold text-white leading-tight min-w-0 flex-1">
+                    Depoimentos dos nossos{" "}
+                    <span className="text-[#14AB5D]">usuários</span>
+                  </h2>
+                  <div
+                    className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#14AB5D] flex items-center justify-center"
+                    style={{ boxShadow: "0 0 16px rgba(20,171,93,0.5)" }}
+                  >
+                    <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -148,7 +155,7 @@ export default function Testimonials() {
 
           {/* Direita: coluna com scroll vertical de depoimentos (3 visíveis, pause no hover) */}
           <div
-            className="relative h-[480px] lg:h-[560px] overflow-hidden rounded-2xl"
+            className="relative min-h-[280px] h-[min(480px,70svh)] sm:h-[480px] lg:h-[560px] overflow-hidden rounded-2xl"
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
           >

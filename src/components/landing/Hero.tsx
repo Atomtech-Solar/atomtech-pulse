@@ -1,8 +1,5 @@
 import { Link } from "react-router-dom";
 
-// Imagem na pasta img na raiz do projeto – copie para public/img/ para build de produção
-const HERO_BG = new URL("../../../img/fundo-azul.png", import.meta.url).href;
-
 const PARTNERS = [
   "CASA ÉRGO",
   "COC",
@@ -58,20 +55,37 @@ function HeroPartnersStrip() {
 
 export default function Hero() {
   return (
-    <section
-      className="relative overflow-hidden flex flex-col -mt-24 sm:-mt-28"
-      style={{ minHeight: "95vh", background: "#000000" }}
-    >
-      {/* Imagem de fundo – cobre a tela toda mantendo proporção (sem distorcer) */}
-      <div
-        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url(${HERO_BG})` }}
-      />
-      {/* Overlay escuro para legibilidade do texto */}
-      <div className="absolute inset-0 z-0 bg-black/40" />
+    <section className="relative overflow-hidden flex flex-col -mt-24 sm:-mt-28 h-screen bg-black">
+      {/* Fundo gradiente animado (goo + blobs) */}
+      <div className="gradient-bg absolute inset-0 z-0" aria-hidden>
+        <svg xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="hero-goo">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+              <feColorMatrix
+                in="blur"
+                mode="matrix"
+                values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -8"
+                result="goo"
+              />
+              <feBlend in="SourceGraphic" in2="goo" />
+            </filter>
+          </defs>
+        </svg>
+        <div className="gradients-container">
+          <div className="g1" />
+          <div className="g2" />
+          <div className="g3" />
+          <div className="g4" />
+          <div className="g5" />
+          <div className="interactive" />
+        </div>
+      </div>
+      {/* Overlay suave para legibilidade do texto */}
+      <div className="absolute inset-0 z-[1] bg-black/35 pointer-events-none" />
 
       {/* Conteúdo central */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-0 text-center">
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-0 text-center pointer-events-auto">
         {/* Badge */}
         <div
           className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6 sm:mb-8 text-xs sm:text-sm font-medium border border-white/10 bg-white/5 text-[#a1a1aa]"

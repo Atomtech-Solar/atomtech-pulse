@@ -37,7 +37,7 @@ function EventIcon({ event }: { event: StationEvent }) {
   if (event.type === "stopped") {
     return <CircleCheck className={`${iconClass} text-muted-foreground`} />;
   }
-  return <Radio className={`${iconClass} text-amber-500`} />;
+  return <Radio className={`${iconClass} text-primary`} />;
 }
 
 interface StationEventsProps {

@@ -26,7 +26,7 @@ const HEALTH_CONFIG: Record<HealthLevel, HealthConfig> = {
   unstable: {
     label: "Instável",
     emoji: "🟡",
-    className: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40",
+    className: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/35",
     tooltip: "Comunicação intermitente ou indisponível. Verifique a conexão.",
   },
   offline: {

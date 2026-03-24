@@ -8,8 +8,8 @@ const STATUS_CONFIG: Record<string, { label: string; className: string; pulse?: 
   online: { label: "Online", className: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40", pulse: true },
   charging: { label: "Carregando", className: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40", pulse: true },
   offline: { label: "Offline", className: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/40" },
-  faulted: { label: "Falha", className: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40" },
-  unavailable: { label: "Indisponível", className: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40" },
+  faulted: { label: "Falha", className: "bg-destructive/20 text-destructive border-destructive/35" },
+  unavailable: { label: "Indisponível", className: "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border-zinc-500/40" },
 };
 
 function formatHeartbeat(value: string | null): string {

@@ -20,9 +20,9 @@ const STATUS_BADGE_CLASSES: Record<string, string> = {
   offline:
     "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/40",
   faulted:
-    "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40",
+    "bg-destructive/20 text-destructive border-destructive/35",
   unavailable:
-    "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40",
+    "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border-zinc-500/40",
 };
 
 interface StationSpecHeaderProps {

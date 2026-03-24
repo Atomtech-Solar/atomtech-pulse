@@ -217,6 +217,39 @@ export type Database = {
           }
         ];
       };
+      lead_submissions: {
+        Row: {
+          id: string;
+          name: string;
+          phone: string;
+          email: string | null;
+          interest_type: string;
+          message: string | null;
+          data: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          phone: string;
+          email?: string | null;
+          interest_type: string;
+          message?: string | null;
+          data?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          phone?: string;
+          email?: string | null;
+          interest_type?: string;
+          message?: string | null;
+          data?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           company_id: number | null;

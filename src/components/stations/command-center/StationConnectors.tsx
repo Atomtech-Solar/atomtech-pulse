@@ -18,7 +18,7 @@ const STATUS_COLORS: Record<string, string> = {
   online: "text-emerald-500",
   offline: "text-muted-foreground",
   faulted: "text-destructive",
-  unavailable: "text-amber-500",
+  unavailable: "text-zinc-400",
 };
 
 export default function StationConnectors({

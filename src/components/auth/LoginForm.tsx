@@ -33,16 +33,18 @@ export function LoginForm({ embedded, onSwitchToRegister }: LoginFormProps) {
 
   if (isAuthenticated && isBlocked) {
     return (
-      <div className="rounded-2xl p-8 bg-card border border-border shadow-xl text-center">
-        <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
-          <AlertTriangle className="w-7 h-7 text-destructive" />
+      <div className="rounded-2xl border border-white/10 bg-[#0a0a0a]/85 p-8 text-center shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_24px_64px_-12px_rgba(0,0,0,0.65)] backdrop-blur-xl">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/15 ring-1 ring-red-500/25">
+          <AlertTriangle className="h-7 w-7 text-red-400" />
         </div>
-        <h2 className="text-lg font-semibold text-foreground mb-2">Acesso bloqueado</h2>
-        <p className="text-muted-foreground text-sm mb-6">
-          Usuário não vinculado a nenhuma empresa.
-        </p>
-        <Button variant="outline" className="w-full" onClick={() => logout()}>
-          <LogOut className="w-4 h-4 mr-2" />
+        <h2 className="mb-2 text-lg font-semibold text-white">Acesso bloqueado</h2>
+        <p className="mb-6 text-sm text-[#a1a1aa]">Usuário não vinculado a nenhuma empresa.</p>
+        <Button
+          variant="outline"
+          className="w-full border-white/15 bg-transparent text-white hover:bg-white/5 hover:text-white"
+          onClick={() => logout()}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
           Sair
         </Button>
       </div>
@@ -68,22 +70,25 @@ export function LoginForm({ embedded, onSwitchToRegister }: LoginFormProps) {
   };
 
   return (
-    <div className="rounded-2xl p-6 sm:p-8 bg-card border border-border shadow-xl">
-      <div className="flex flex-col items-center mb-8">
-        <div className="w-14 h-14 rounded-2xl gradient-primary flex items-center justify-center mb-4 glow-primary">
-          <Zap className="w-7 h-7 text-primary-foreground" />
+    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a]/80 p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_24px_64px_-12px_rgba(0,0,0,0.65)] backdrop-blur-xl sm:p-8">
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#14AB5D]/30 to-transparent"
+        aria-hidden
+      />
+
+      <div className="mb-8 flex flex-col items-center text-center">
+        <div className="mb-4 flex h-[3.25rem] w-[3.25rem] items-center justify-center rounded-xl bg-[#14AB5D] shadow-[0_0_28px_rgba(20,171,93,0.45)]">
+          <Zap className="h-7 w-7 text-white" />
         </div>
-        <h2 className="font-display font-bold text-2xl text-foreground tracking-tight">
-          Entrar
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Acesse sua conta
-        </p>
+        <h2 className="font-display text-2xl font-bold tracking-tight text-white">Entrar</h2>
+        <p className="mt-1.5 text-sm text-[#a1a1aa]">Acesse sua conta</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-2">
-          <Label htmlFor="login-email">Email</Label>
+          <Label htmlFor="login-email" className="text-[#a1a1aa]">
+            Email
+          </Label>
           <Input
             id="login-email"
             type="email"
@@ -91,12 +96,14 @@ export function LoginForm({ embedded, onSwitchToRegister }: LoginFormProps) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="h-11"
+            className="h-11 rounded-xl border-white/10 bg-[#141414] text-white placeholder:text-zinc-500 focus-visible:border-[#14AB5D]/40 focus-visible:ring-[#14AB5D]/25"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="login-password">Senha</Label>
+          <Label htmlFor="login-password" className="text-[#a1a1aa]">
+            Senha
+          </Label>
           <div className="relative">
             <Input
               id="login-password"
@@ -105,27 +112,28 @@ export function LoginForm({ embedded, onSwitchToRegister }: LoginFormProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="h-11 pr-10"
+              className="h-11 rounded-xl border-white/10 bg-[#141414] pr-10 text-white placeholder:text-zinc-500 focus-visible:border-[#14AB5D]/40 focus-visible:ring-[#14AB5D]/25"
             />
             <button
               type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#a1a1aa] transition-colors hover:text-[#14AB5D]"
               onClick={() => setShowPassword(!showPassword)}
             >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
         </div>
 
         {error && (
-          <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg p-3 text-center">
+          <div className="rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-3 text-center text-sm text-red-200">
             {error}
           </div>
         )}
 
         <Button
           type="submit"
-          className="w-full h-11 font-semibold gradient-primary text-primary-foreground glow-primary"
+          variant="ghost"
+          className="hero-btn-primary h-11 w-full rounded-xl border-2 border-transparent font-semibold text-white hover:text-white"
           disabled={loading}
         >
           {loading ? "Entrando..." : "Entrar"}
@@ -133,12 +141,12 @@ export function LoginForm({ embedded, onSwitchToRegister }: LoginFormProps) {
       </form>
 
       {embedded && onSwitchToRegister ? (
-        <p className="text-sm text-muted-foreground text-center mt-6">
+        <p className="mt-7 text-center text-sm text-[#a1a1aa]">
           Não tem conta?{" "}
           <button
             type="button"
             onClick={onSwitchToRegister}
-            className="text-primary hover:underline font-medium"
+            className="font-medium text-[#14AB5D] transition-colors hover:text-[#4ade80] hover:underline"
           >
             Cadastrar
           </button>

@@ -28,7 +28,7 @@ function PhoneFrame({ children, label }: { children: React.ReactNode; label?: st
 
         {/* Tela com cantos internos */}
         <div
-          className="relative pt-10 pb-8 px-6 min-h-[580px] flex flex-col rounded-[2rem] mx-1.5 mb-1.5 overflow-hidden"
+          className="relative pt-10 pb-8 px-6 min-h-[min(580px,85svh)] sm:min-h-[580px] flex flex-col rounded-[2rem] mx-1.5 mb-1.5 overflow-hidden"
           style={{
             background: "linear-gradient(180deg, #0f0f0f 0%, #0a0a0a 100%)",
             boxShadow: "inset 0 0 60px rgba(0,0,0,0.5)",
@@ -186,8 +186,11 @@ function Phone3Reward() {
 
 export default function UserExperience() {
   return (
-    <section id="experiencia" className="py-16 sm:py-24 px-4 sm:px-6 bg-[#030712]">
-      <div className="max-w-6xl mx-auto">
+    <section
+      id="experiencia"
+      className="flex flex-col justify-center items-center py-16 sm:py-24 px-4 sm:px-6 bg-[#030712]"
+    >
+      <div className="w-full max-w-6xl mx-auto flex flex-col items-center">
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center text-white mb-4">
           A Experiência do Usuário
         </h2>

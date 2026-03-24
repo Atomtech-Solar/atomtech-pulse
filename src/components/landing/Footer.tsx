@@ -49,9 +49,10 @@ export default function Footer() {
   return (
     <footer className="border-t border-white/10 bg-[#000000]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
-        <div className="grid grid-cols-3 grid-rows-2 md:grid-cols-3 md:grid-rows-1 gap-x-4 gap-y-6 md:gap-12 items-start justify-items-center md:justify-items-stretch">
-          {/* Col 1: Logo (linha 1) + Descrição e sociais (linha 2) */}
-          <div className="col-span-1 row-span-2 md:row-span-1 flex flex-col gap-3 w-full max-w-[200px] md:max-w-none justify-self-center md:justify-self-stretch">
+        {/* Layout: <700px coluna única | 700–999px esquerda em cima (full) + nav e contato lado a lado | ≥1000px 3 colunas */}
+        <div className="grid grid-cols-1 min-[700px]:max-[999px]:grid-cols-2 min-[1000px]:grid-cols-3 gap-x-4 gap-y-10 min-[1000px]:gap-12 items-start justify-items-center min-[700px]:justify-items-stretch">
+          {/* Bloco esquerdo: logo + texto + redes */}
+          <div className="flex flex-col gap-3 w-full max-w-sm min-[700px]:max-[999px]:col-span-2 min-[1000px]:col-span-1 min-[700px]:max-[999px]:max-w-none min-[1000px]:max-w-none">
             <Link to="/" className="inline-flex items-center gap-2 text-white font-semibold hover:text-[#14AB5D] transition-colors shrink-0">
               <Zap className="w-6 h-6 text-[#14AB5D] shrink-0" />
               <span className="text-lg">TOP-UP</span>
@@ -69,13 +70,13 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Col 2: Navegação em grid 3x2 – 6 links em 3 colunas x 2 linhas */}
-          <div className="col-span-1 row-span-2 md:row-span-1 w-full max-w-[200px] md:max-w-none justify-self-center md:justify-self-stretch">
-            <h3 className="font-semibold text-white mb-3 md:mb-4">Navegação</h3>
-            <ul className="grid grid-cols-3 grid-rows-2 gap-x-2 gap-y-1.5 md:gap-x-6 md:gap-y-2">
+          {/* Navegação (3x2 em telas largas; em &lt;700px full width) */}
+          <div className="w-full max-w-sm min-[700px]:max-w-none">
+            <h3 className="font-semibold text-white mb-3 min-[1000px]:mb-4">Navegação</h3>
+            <ul className="grid grid-cols-3 grid-rows-2 gap-x-2 gap-y-1.5 min-[1000px]:gap-x-6 min-[1000px]:gap-y-2">
               {NAV_LINKS.map(({ to, label, hash }) => (
                 <li key={to}>
-                  <Link to={to} onClick={(e) => handleNavClick(e, to, hash)} className="text-xs md:text-sm text-[#a1a1aa] hover:text-white transition-colors">
+                  <Link to={to} onClick={(e) => handleNavClick(e, to, hash)} className="text-xs min-[1000px]:text-sm text-[#a1a1aa] hover:text-white transition-colors">
                     {label}
                   </Link>
                 </li>
@@ -83,8 +84,8 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Col 3: Contato */}
-          <div className="col-span-1 row-span-2 md:row-span-1 space-y-4 w-full max-w-[200px] md:max-w-none justify-self-center md:justify-self-stretch">
+          {/* Contato */}
+          <div className="space-y-4 w-full max-w-sm min-[700px]:max-w-none">
             <h3 className="font-semibold text-white mb-3 md:mb-4">Contato</h3>
             <ul className="space-y-4">
               <li className="flex items-start gap-3">

@@ -106,7 +106,7 @@ export default function StationTransactions({
                         className={
                           tx.status === "completed"
                             ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                            : "bg-primary/12 text-primary border-primary/28"
                         }
                       >
                         {tx.status === "completed" ? "Concluída" : "Em andamento"}

@@ -93,7 +93,7 @@ export default function DashboardLayout() {
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-[#030712]/85 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
           aria-hidden
         />
@@ -107,8 +107,11 @@ export default function DashboardLayout() {
         )}
       >
         <div className="flex items-center gap-2 px-3 h-16 border-b border-sidebar-border shrink-0">
-          <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center shrink-0">
-            <Zap className="w-4 h-4 text-primary-foreground" />
+          <div
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#14AB5D] shadow-[0_0_16px_rgba(20,171,93,0.35)]"
+            aria-hidden
+          >
+            <Zap className="h-4 w-4 text-white" />
           </div>
           <span className="font-display font-bold text-lg text-foreground tracking-tight truncate">
             TOP-UP

@@ -55,7 +55,7 @@ const statusColors: Record<string, string> = {
     "bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30",
   faulted: "bg-destructive/20 text-destructive border-destructive/30",
   unavailable:
-    "bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border-zinc-500/30",
 };
 
 const statusLabels: Record<string, string> = {
