@@ -2,7 +2,7 @@
 export const LEAD_INTEREST_OPTIONS = [
   { value: "saber_mais", label: "Saber mais" },
   { value: "investir", label: "Investir" },
-  { value: "avaliar_ponto", label: "Avaliar ponto de instalação" },
+  { value: "avaliar_instalacao", label: "Avaliar ponto de instalação" },
   { value: "anunciar", label: "Anunciar" },
 ] as const;
 

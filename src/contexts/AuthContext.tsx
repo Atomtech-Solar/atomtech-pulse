@@ -145,6 +145,33 @@ function clearAuthStorage(): void {
   localStorage.removeItem(COMPANY_KEY);
 }
 
+/** Garante remoção de tokens Supabase se signOut falhar ou ficar incompleto. */
+function clearSupabaseLocalSession(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(SUPABASE_AUTH_STORAGE_KEY);
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith("sb-") && k.includes("auth-token")) toRemove.push(k);
+    }
+    for (const k of toRemove) localStorage.removeItem(k);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Navegação pós-logout: em `/login` o replace para a mesma URL costuma não recarregar — força query única. */
+function redirectToLoginAfterLogout(): void {
+  if (typeof window === "undefined") return;
+  const path = window.location.pathname;
+  if (path === "/login") {
+    window.location.replace(`/login?logout=${Date.now()}`);
+  } else {
+    window.location.replace("/login");
+  }
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const LOGIN_TIMEOUT_MS = 15000;
@@ -319,12 +346,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
+    clearSupabaseLocalSession();
     clearAuthStorage();
     setUser(null);
     setSelectedCompanyId(null);
-    if (typeof window !== "undefined") {
-      window.location.replace("/login");
-    }
+    redirectToLoginAfterLogout();
   }, []);
 
   const logout = useCallback(async () => {
@@ -333,12 +359,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
+    clearSupabaseLocalSession();
     clearAuthStorage();
     setUser(null);
     setSelectedCompanyId(null);
-    if (typeof window !== "undefined") {
-      window.location.replace("/login");
-    }
+    redirectToLoginAfterLogout();
   }, []);
 
   useEffect(() => {

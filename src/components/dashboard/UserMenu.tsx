@@ -59,7 +59,12 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="text-destructive focus:text-destructive focus:bg-destructive/10"
-          onSelect={onLogout}
+          onSelect={() => {
+            // Deferir: Radix fecha o menu antes do fim do handler async; sem isso o replace pode não rodar.
+            setTimeout(() => {
+              void onLogout();
+            }, 0);
+          }}
         >
           <LogOut className="h-4 w-4 mr-2" />
           Sair

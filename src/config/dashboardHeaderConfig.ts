@@ -19,11 +19,13 @@ const PAGE_CONFIG_BY_PATH: Record<string, PageConfig> = {
   "/dashboard/push": { title: "Push", breadcrumb: ["Dashboard", "Marketing"] },
   "/dashboard/vouchers": { title: "Vouchers", breadcrumb: ["Dashboard", "Marketing"] },
   "/dashboard/promotions": { title: "Promoções", breadcrumb: ["Dashboard", "Marketing"] },
+  "/dashboard/leads": { title: "Leads recebidos", breadcrumb: ["Dashboard", "Marketing"] },
   "/dashboard/financial": { title: "Financeiro", breadcrumb: ["Dashboard", "Financeiro"] },
   "/dashboard/settings": { title: "Configurações", breadcrumb: ["Dashboard", "Sistema"] },
   "/dashboard/companies": { title: "Empresas", breadcrumb: ["Dashboard"] },
   "/admin/companies": { title: "Empresas", breadcrumb: ["Admin"] },
   "/admin/landing-analytics": { title: "Landing Analytics", breadcrumb: ["Admin"] },
+  "/admin/leads": { title: "Leads recebidos", breadcrumb: ["Admin"] },
 };
 
 function getBasePath(pathname: string): string {

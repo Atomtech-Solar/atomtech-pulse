@@ -27,10 +27,10 @@ export function ModeToggleCard({ active, onActivate, supportText, children, clas
         }
       }}
       className={cn(
-        "rounded-2xl border-2 bg-card/80 p-5 shadow-xl backdrop-blur-sm transition-all duration-300 ease-in-out sm:p-8",
+        "min-w-0 rounded-2xl border-2 bg-card/80 shadow-xl backdrop-blur-sm transition-[padding,opacity,border-color,box-shadow] duration-500 ease-in-out",
         active
-          ? "z-10 scale-100 border-emerald-500 opacity-100 shadow-emerald-500/10"
-          : "scale-95 cursor-pointer border-zinc-700 opacity-60 hover:scale-[1.02] hover:opacity-80",
+          ? "z-10 border-emerald-500 p-5 opacity-100 shadow-emerald-500/10 sm:p-8"
+          : "cursor-pointer border-zinc-700 p-4 opacity-60 hover:opacity-90 sm:p-5",
         className
       )}
     >

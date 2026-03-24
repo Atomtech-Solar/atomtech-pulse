@@ -18,7 +18,7 @@ type RegisterFormProps = {
   onSwitchToLogin?: () => void;
   /** Quando false, UI somente leitura (card inativo no desktop). */
   interactive?: boolean;
-  /** Sem moldura de card (uso dentro de `ModeToggleCard` / wrapper com borda). */
+  /** Sem moldura de card (uso dentro do painel da landing / wrapper com borda). */
   plainChrome?: boolean;
 };
 

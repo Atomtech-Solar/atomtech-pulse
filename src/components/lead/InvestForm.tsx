@@ -1,9 +1,14 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { LeadIntakeExtra } from "@/types/leadIntake";
 import { BR_UFS } from "@/constants/brStates";
-import { leadInputClass, leadSelectClass } from "./leadFormStyles";
+import { leadInputClass } from "./leadFormStyles";
 import { cn } from "@/lib/utils";
+
+/** Radio nativo com preenchimento verde (landing) */
+const leadRadioClass =
+  "h-4 w-4 shrink-0 cursor-pointer border-white/25 bg-[#141414] accent-[#14AB5D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712] disabled:cursor-not-allowed";
 
 type InvestFormProps = {
   disabled?: boolean;
@@ -38,20 +43,35 @@ export function InvestForm({ disabled, extra, onExtraChange }: InvestFormProps) 
         </div>
         <div className="space-y-2">
           <Label htmlFor="inv-uf">Estado (UF)</Label>
-          <select
-            id="inv-uf"
-            value={extra.stateUf}
-            onChange={(e) => onExtraChange({ stateUf: e.target.value })}
+          <Select
+            value={extra.stateUf || undefined}
+            onValueChange={(v) => onExtraChange({ stateUf: v })}
             disabled={disabled}
-            className={cn(leadSelectClass, "w-full")}
           >
-            <option value="">Selecione</option>
-            {BR_UFS.map((uf) => (
-              <option key={uf} value={uf}>
-                {uf}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger
+              id="inv-uf"
+              className={cn(
+                leadInputClass,
+                "h-11 w-full cursor-pointer text-left text-white data-[placeholder]:text-zinc-500 [&>span]:line-clamp-1"
+              )}
+            >
+              <SelectValue placeholder="Selecione o estado" />
+            </SelectTrigger>
+            <SelectContent
+              position="popper"
+              className="max-h-[min(280px,70vh)] border-white/10 bg-[#141414] text-white shadow-xl shadow-black/40"
+            >
+              {BR_UFS.map((uf) => (
+                <SelectItem
+                  key={uf}
+                  value={uf}
+                  className="cursor-pointer rounded-md py-2 pl-8 pr-2 text-white focus:bg-emerald-500/15 focus:text-white data-[highlighted]:bg-emerald-500/15 data-[highlighted]:text-white data-[state=checked]:bg-emerald-500/10"
+                >
+                  <span className="font-medium tabular-nums">{uf}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -72,7 +92,7 @@ export function InvestForm({ disabled, extra, onExtraChange }: InvestFormProps) 
                 checked={extra.investmentRange === opt.value}
                 onChange={() => onExtraChange({ investmentRange: opt.value })}
                 disabled={disabled}
-                className="h-4 w-4 border-border text-emerald-500"
+                className={leadRadioClass}
               />
               <span>{opt.label}</span>
             </label>
@@ -102,7 +122,7 @@ export function InvestForm({ disabled, extra, onExtraChange }: InvestFormProps) 
                 checked={extra.hasLocation === k}
                 onChange={() => onExtraChange({ hasLocation: k })}
                 disabled={disabled}
-                className="h-4 w-4 border-border text-emerald-500"
+                className={leadRadioClass}
               />
               {lab}
             </label>

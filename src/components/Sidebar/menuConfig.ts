@@ -12,6 +12,7 @@ import {
   Building2,
   Settings,
   LineChart,
+  Inbox,
 } from "lucide-react";
 
 export interface MenuItem {
@@ -53,6 +54,7 @@ export const SIDEBAR_MENU: MenuGroup[] = [
     title: "Marketing",
     icon: Bell,
     items: [
+      { label: "Leads recebidos", path: "/dashboard/leads", icon: Inbox },
       { label: "Push", path: "/dashboard/push", icon: Bell },
       { label: "Vouchers", path: "/dashboard/vouchers", icon: Ticket },
       { label: "Promoções", path: "/dashboard/promotions", icon: Tag },
@@ -74,6 +76,7 @@ export const SIDEBAR_MENU: MenuGroup[] = [
     items: [
       { label: "Empresas", path: "/admin/companies", icon: Building2 },
       { label: "Landing Analytics", path: "/admin/landing-analytics", icon: LineChart },
+      { label: "Leads recebidos", path: "/admin/leads", icon: Inbox },
     ],
   },
   {

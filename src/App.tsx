@@ -30,6 +30,7 @@ import Financial from "@/pages/Financial";
 import SettingsPage from "@/pages/SettingsPage";
 import Companies from "@/pages/Companies";
 import LandingPageAnalytics from "@/pages/LandingPageAnalytics";
+import LeadSubmissionsPage from "@/pages/LeadSubmissionsPage";
 import NotFound from "@/pages/NotFound";
 import AppRedirect from "@/components/AppRedirect";
 
@@ -82,6 +83,7 @@ const App = () => {
                 <Route index element={<Navigate to="/admin/companies" replace />} />
                 <Route path="companies" element={<Companies />} />
                 <Route path="landing-analytics" element={<LandingPageAnalytics />} />
+                <Route path="leads" element={<LeadSubmissionsPage />} />
               </Route>
             </Route>
             <Route element={<DashboardProtectedRoute />}>
@@ -98,6 +100,7 @@ const App = () => {
                 <Route path="financial" element={<Financial />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="companies" element={<Companies />} />
+                <Route path="leads" element={<LeadSubmissionsPage />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />

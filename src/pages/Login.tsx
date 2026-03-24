@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth, getRedirectPath, isBlockedUser } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,8 +31,16 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { user, loginWithSupabase, isAuthenticated, isLoading, logout } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const redirectPath = getRedirectPath(user);
+
+  useEffect(() => {
+    if (!searchParams.has("logout")) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("logout");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
   const isBlocked = isBlockedUser(user);
 
   useEffect(() => {

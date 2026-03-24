@@ -7,7 +7,12 @@ import { Phone, Send } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { formatPhoneNational, getPhoneDigits, validatePhoneBR } from "@/lib/formatPhone";
 import type { LeadInterestValue } from "@/constants/leadInterests";
-import { buildLeadDataPayload, emptyLeadExtra, type LeadIntakeExtra } from "@/types/leadIntake";
+import {
+  buildLeadDataPayload,
+  emptyLeadExtra,
+  validateLeadDataPayload,
+  type LeadIntakeExtra,
+} from "@/types/leadIntake";
 import { InterestSelector } from "./InterestSelector";
 import { BasicForm } from "./BasicForm";
 import { InvestForm } from "./InvestForm";
@@ -19,12 +24,20 @@ import { cn } from "@/lib/utils";
 const HINT: Record<LeadInterestValue, string> = {
   saber_mais: "Leva menos de 10 segundos — preencha apenas o essencial.",
   investir: "Pré-qualificação comercial: quanto mais claro, mais rápido retornamos.",
-  avaliar_ponto: "Quanto mais detalhes, melhor podemos te ajudar no projeto.",
+  avaliar_instalacao: "Quanto mais detalhes, melhor podemos te ajudar no projeto.",
   anunciar: "Parcerias e mídia — conte sobre seu negócio e sua região.",
 };
 
 function safeFileName(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
+}
+
+/** Empresa que recebe o lead na dashboard (VITE_LEAD_DEFAULT_COMPANY_ID). */
+function defaultLeadCompanyId(): number | null {
+  const raw = import.meta.env.VITE_LEAD_DEFAULT_COMPANY_ID as string | undefined;
+  if (raw === undefined || raw === "") return null;
+  const n = parseInt(String(raw), 10);
+  return Number.isFinite(n) ? n : null;
 }
 
 function validateForm(
@@ -53,7 +66,7 @@ function validateForm(
       if (!extra.investmentRange) return "Selecione a faixa de investimento.";
       if (!extra.hasLocation) return "Indique se já possui local.";
       return null;
-    case "avaliar_ponto":
+    case "avaliar_instalacao":
       if (!extra.fullAddress.trim()) return "Informe o endereço completo.";
       if (!extra.installLocationType) return "Selecione o tipo de local (residencial ou comercial).";
       if (!extra.ownParking) return "Indique se possui vaga própria.";
@@ -105,9 +118,8 @@ export function InterestFormContainer({ interactive = true, onSuccess }: Interes
     try {
       const phoneE164 = `+55${digits}`;
 
-      let dataPayload: Record<string, unknown> = { ...buildLeadDataPayload(interestType, extra) };
-
-      if (interestType === "avaliar_ponto" && extra.imageFile) {
+      let imagePublicUrl: string | null = null;
+      if (interestType === "avaliar_instalacao" && extra.imageFile) {
         const path = `public/${crypto.randomUUID()}-${safeFileName(extra.imageFile.name)}`;
         const { error: upErr } = await supabase.storage.from("lead-attachments").upload(path, extra.imageFile, {
           cacheControl: "3600",
@@ -118,7 +130,18 @@ export function InterestFormContainer({ interactive = true, onSuccess }: Interes
           setLoading(false);
           return;
         }
-        dataPayload = { ...dataPayload, image_path: path };
+        const { data: pub } = supabase.storage.from("lead-attachments").getPublicUrl(path);
+        imagePublicUrl = pub.publicUrl;
+      }
+
+      const dataPayload: Record<string, unknown> = buildLeadDataPayload(interestType, extra, {
+        imagePublicUrl,
+      });
+      const payloadErr = validateLeadDataPayload(interestType, dataPayload);
+      if (payloadErr) {
+        setError(payloadErr);
+        setLoading(false);
+        return;
       }
 
       const trimmedEmail = email.trim().toLowerCase();
@@ -129,6 +152,7 @@ export function InterestFormContainer({ interactive = true, onSuccess }: Interes
         interest_type: interestType,
         message: message.trim() || null,
         data: dataPayload,
+        company_id: defaultLeadCompanyId(),
       });
 
       if (insertError) {
@@ -204,7 +228,7 @@ export function InterestFormContainer({ interactive = true, onSuccess }: Interes
       <div key={interestType} className="transition-all duration-300 ease-in-out">
         {interestType === "saber_mais" && <BasicForm disabled={ro} extra={extra} onExtraChange={patchExtra} />}
         {interestType === "investir" && <InvestForm disabled={ro} extra={extra} onExtraChange={patchExtra} />}
-        {interestType === "avaliar_ponto" && <InstallForm disabled={ro} extra={extra} onExtraChange={patchExtra} />}
+        {interestType === "avaliar_instalacao" && <InstallForm disabled={ro} extra={extra} onExtraChange={patchExtra} />}
         {interestType === "anunciar" && <AdvertiseForm disabled={ro} extra={extra} onExtraChange={patchExtra} />}
       </div>
 

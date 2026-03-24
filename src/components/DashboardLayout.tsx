@@ -20,11 +20,13 @@ const REFRESH_QUERY_KEYS_BY_PATH: Record<string, string[]> = {
   "/dashboard/push": ["push_notifications"],
   "/dashboard/vouchers": ["vouchers"],
   "/dashboard/promotions": ["tariffs"],
+  "/dashboard/leads": ["lead_submissions"],
   "/dashboard/financial": ["sessions", "stations", "station_revenue"],
   "/dashboard/settings": ["company_settings", "tariffs", "companies"],
   "/dashboard/companies": ["companies"],
   "/admin/companies": ["companies", "profiles-admin"],
   "/admin/landing-analytics": ["profiles-admin"],
+  "/admin/leads": ["lead_submissions"],
 };
 const REFRESH_TIMEOUT_MS = 12000;
 

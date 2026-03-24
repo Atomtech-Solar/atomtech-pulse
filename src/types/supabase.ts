@@ -227,6 +227,9 @@ export type Database = {
           message: string | null;
           data: Json;
           created_at: string;
+          company_id: number | null;
+          lead_status: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
@@ -237,6 +240,9 @@ export type Database = {
           message?: string | null;
           data?: Json;
           created_at?: string;
+          company_id?: number | null;
+          lead_status?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -247,8 +253,19 @@ export type Database = {
           message?: string | null;
           data?: Json;
           created_at?: string;
+          company_id?: number | null;
+          lead_status?: string;
+          updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "lead_submissions_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       profiles: {
         Row: {
