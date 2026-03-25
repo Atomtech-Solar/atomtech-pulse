@@ -20,6 +20,12 @@ import { InstallForm } from "./InstallForm";
 import { AdvertiseForm } from "./AdvertiseForm";
 import { leadInputClass, leadTextareaClass } from "./leadFormStyles";
 import { cn } from "@/lib/utils";
+import {
+  MAX_LEAD_IMAGE_BYTES,
+  resolveLeadImageContentType,
+  validateLeadImageFile,
+} from "@/lib/leadImageUpload";
+import { randomUploadId } from "@/lib/randomId";
 
 const HINT: Record<LeadInterestValue, string> = {
   saber_mais: "Leva menos de 10 segundos — preencha apenas o essencial.",
@@ -71,12 +77,12 @@ function validateForm(
       if (!extra.installLocationType) return "Selecione o tipo de local (residencial ou comercial).";
       if (!extra.ownParking) return "Indique se possui vaga própria.";
       if (!extra.electricalNetwork) return "Selecione o tipo de rede elétrica.";
+      if (!extra.vehicleFlow) return "Indique se há fluxo relevante de veículos.";
       return null;
     case "anunciar":
       if (!extra.companyName.trim()) return "Informe o nome da empresa.";
       if (!extra.businessType.trim()) return "Informe o tipo de negócio.";
       if (!extra.partnerLocation.trim()) return "Informe a localização.";
-      if (!extra.vehicleFlow) return "Indique se há fluxo relevante de veículos.";
       return null;
     default:
       return null;
@@ -120,13 +126,28 @@ export function InterestFormContainer({ interactive = true, onSuccess }: Interes
 
       let imagePublicUrl: string | null = null;
       if (interestType === "avaliar_instalacao" && extra.imageFile) {
-        const path = `public/${crypto.randomUUID()}-${safeFileName(extra.imageFile.name)}`;
+        const imgErr = validateLeadImageFile(extra.imageFile);
+        if (imgErr) {
+          setError(imgErr);
+          setLoading(false);
+          return;
+        }
+        const path = `public/${randomUploadId()}-${safeFileName(extra.imageFile.name)}`;
+        const contentType = resolveLeadImageContentType(extra.imageFile);
         const { error: upErr } = await supabase.storage.from("lead-attachments").upload(path, extra.imageFile, {
           cacheControl: "3600",
           upsert: false,
+          contentType,
         });
         if (upErr) {
-          setError(upErr.message ?? "Falha no envio da imagem. Tente outra foto ou envie sem imagem.");
+          const raw = (upErr.message ?? "").toLowerCase();
+          const hint =
+            raw.includes("mime") || raw.includes("type") || raw.includes("invalid")
+              ? " Tente outro formato (JPG ou PNG) ou envie sem foto."
+              : raw.includes("size") || raw.includes("large") || raw.includes("limit")
+                ? ` O arquivo deve ter no máximo ${Math.round(MAX_LEAD_IMAGE_BYTES / (1024 * 1024))} MB.`
+                : " Tente outra foto ou envie sem imagem.";
+          setError((upErr.message ?? "Falha no envio da imagem.") + hint);
           setLoading(false);
           return;
         }
@@ -156,12 +177,14 @@ export function InterestFormContainer({ interactive = true, onSuccess }: Interes
       });
 
       if (insertError) {
-        setError(insertError.message ?? "Não foi possível enviar. Tente novamente.");
+        const detail = [insertError.message, insertError.hint].filter(Boolean).join(" ");
+        setError(detail || "Não foi possível enviar. Tente novamente.");
         return;
       }
 
       onSuccess?.();
-    } catch {
+    } catch (err) {
+      if (import.meta.env.DEV) console.error("[InterestForm]", err);
       setError("Erro inesperado. Tente novamente.");
     } finally {
       setLoading(false);

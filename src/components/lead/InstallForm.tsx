@@ -1,8 +1,7 @@
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { LeadIntakeExtra } from "@/types/leadIntake";
-import { leadInputClass, leadTextareaClass } from "./leadFormStyles";
+import { leadTextareaClass } from "./leadFormStyles";
 import { cn } from "@/lib/utils";
 import { ImagePlus } from "lucide-react";
 
@@ -125,6 +124,36 @@ export function InstallForm({ disabled, extra, onExtraChange }: InstallFormProps
       </div>
 
       <div className="space-y-2">
+        <Label>Possui fluxo relevante de veículos?</Label>
+        <div className="flex flex-wrap gap-3">
+          {(
+            [
+              ["sim", "Sim"],
+              ["nao", "Não"],
+            ] as const
+          ).map(([k, lab]) => (
+            <label
+              key={k}
+              className={cn(
+                "flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm has-[:checked]:border-emerald-500/60 has-[:checked]:bg-emerald-500/10",
+                disabled && "pointer-events-none opacity-60"
+              )}
+            >
+              <input
+                type="radio"
+                name="ins-vehicle-flow"
+                checked={extra.vehicleFlow === k}
+                onChange={() => onExtraChange({ vehicleFlow: k })}
+                disabled={disabled}
+                className="h-4 w-4 border-border text-emerald-500"
+              />
+              {lab}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="ins-photo">Foto do local (opcional, recomendado)</Label>
         <label
           className={cn(
@@ -134,12 +163,12 @@ export function InstallForm({ disabled, extra, onExtraChange }: InstallFormProps
         >
           <ImagePlus className="h-8 w-8 text-muted-foreground" />
           <span className="text-center text-xs text-muted-foreground">
-            {extra.imageFile ? extra.imageFile.name : "PNG, JPG ou WebP até 5 MB"}
+            {extra.imageFile ? extra.imageFile.name : "JPG, PNG, WebP ou GIF até 5 MB"}
           </span>
           <input
             id="ins-photo"
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
             className="sr-only"
             disabled={disabled}
             onChange={(e) => {

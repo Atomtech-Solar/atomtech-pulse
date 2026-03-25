@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="TOP-UP">
+  <rect width="32" height="32" rx="8" fill="#030712"/>
+  <!-- Raio (mesmo ícone Zap da marca), 24px centrado -->
+  <g transform="translate(4 4)">
+    <path fill="#14AB5D" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+  </g>
+</svg>

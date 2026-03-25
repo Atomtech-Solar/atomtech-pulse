@@ -2,7 +2,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import type { LeadIntakeExtra } from "@/types/leadIntake";
 import { leadInputClass } from "./leadFormStyles";
-import { cn } from "@/lib/utils";
 
 type AdvertiseFormProps = {
   disabled?: boolean;
@@ -51,36 +50,6 @@ export function AdvertiseForm({ disabled, extra, onExtraChange }: AdvertiseFormP
           className={leadInputClass}
           placeholder="Cidade / região de atuação"
         />
-      </div>
-
-      <div className="space-y-2">
-        <Label>Possui fluxo relevante de veículos?</Label>
-        <div className="flex flex-wrap gap-3">
-          {(
-            [
-              ["sim", "Sim"],
-              ["nao", "Não"],
-            ] as const
-          ).map(([k, lab]) => (
-            <label
-              key={k}
-              className={cn(
-                "flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm has-[:checked]:border-emerald-500/60 has-[:checked]:bg-emerald-500/10",
-                disabled && "pointer-events-none opacity-60"
-              )}
-            >
-              <input
-                type="radio"
-                name="adv-flow"
-                checked={extra.vehicleFlow === k}
-                onChange={() => onExtraChange({ vehicleFlow: k })}
-                disabled={disabled}
-                className="h-4 w-4 border-border text-emerald-500"
-              />
-              {lab}
-            </label>
-          ))}
-        </div>
       </div>
     </div>
   );

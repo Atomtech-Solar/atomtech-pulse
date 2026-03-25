@@ -145,6 +145,20 @@ function clearAuthStorage(): void {
   localStorage.removeItem(COMPANY_KEY);
 }
 
+/** Encerra sessão só no cliente (rápido). O signOut global pode travar em rede lenta e impedir o redirect. */
+const SIGN_OUT_TIMEOUT_MS = 5000;
+
+async function signOutLocalWithTimeout(): Promise<void> {
+  try {
+    await Promise.race([
+      supabase.auth.signOut({ scope: "local" }),
+      new Promise<void>((resolve) => setTimeout(resolve, SIGN_OUT_TIMEOUT_MS)),
+    ]);
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Garante remoção de tokens Supabase se signOut falhar ou ficar incompleto. */
 function clearSupabaseLocalSession(): void {
   if (typeof window === "undefined") return;
@@ -341,11 +355,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const forceLogout = useCallback(async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      /* ignore */
-    }
+    await signOutLocalWithTimeout();
     clearSupabaseLocalSession();
     clearAuthStorage();
     setUser(null);
@@ -354,11 +364,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      /* ignore */
-    }
+    await signOutLocalWithTimeout();
     clearSupabaseLocalSession();
     clearAuthStorage();
     setUser(null);

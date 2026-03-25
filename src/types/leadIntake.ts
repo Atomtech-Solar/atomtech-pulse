@@ -24,11 +24,11 @@ export type LeadIntakeExtra = {
   ownParking: "" | "sim" | "nao";
   electricalNetwork: "" | "monofasico" | "bifasico" | "trifasico" | "nao_sei";
   imageFile: File | null;
+  vehicleFlow: "" | "sim" | "nao";
   /** anunciar */
   companyName: string;
   businessType: string;
   partnerLocation: string;
-  vehicleFlow: "" | "sim" | "nao";
 };
 
 export const emptyLeadExtra = (): LeadIntakeExtra => ({
@@ -43,10 +43,10 @@ export const emptyLeadExtra = (): LeadIntakeExtra => ({
   ownParking: "",
   electricalNetwork: "",
   imageFile: null,
+  vehicleFlow: "",
   companyName: "",
   businessType: "",
   partnerLocation: "",
-  vehicleFlow: "",
 });
 
 /**
@@ -71,13 +71,13 @@ export type LeadSubmissionDataAvaliarInstalacao = {
   has_parking: boolean;
   power_type: string;
   image_url: string;
+  vehicle_flow: boolean;
 };
 
 export type LeadSubmissionDataAnunciar = {
   company_name: string;
   business_type: string;
   location: string;
-  vehicle_flow: boolean;
 };
 
 /** Monta `data` para insert no Supabase (apenas chaves com valor definido onde fizer sentido). */
@@ -108,6 +108,7 @@ export function buildLeadDataPayload(
         has_parking: extra.ownParking === "sim",
         power_type: extra.electricalNetwork,
         image_url: imageUrl,
+        vehicle_flow: extra.vehicleFlow === "sim",
       };
     }
     case "anunciar":
@@ -115,7 +116,6 @@ export function buildLeadDataPayload(
         company_name: extra.companyName.trim(),
         business_type: extra.businessType.trim(),
         location: extra.partnerLocation.trim(),
-        vehicle_flow: extra.vehicleFlow === "sim",
       };
     default:
       return {};
@@ -150,12 +150,12 @@ export function validateLeadDataPayload(
       if (!strField(data, "place_type")) return "Selecione o tipo de local (residencial ou comercial).";
       if (!isBool(data.has_parking)) return "Indique se possui vaga própria.";
       if (!strField(data, "power_type")) return "Selecione o tipo de rede elétrica.";
+      if (!isBool(data.vehicle_flow)) return "Indique se há fluxo relevante de veículos.";
       return null;
     case "anunciar":
       if (!strField(data, "company_name")) return "Informe o nome da empresa.";
       if (!strField(data, "business_type")) return "Informe o tipo de negócio.";
       if (!strField(data, "location")) return "Informe a localização.";
-      if (!isBool(data.vehicle_flow)) return "Indique se há fluxo relevante de veículos.";
       return null;
     default:
       return "Tipo de interesse inválido.";

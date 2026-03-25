@@ -221,7 +221,11 @@ export function useTariffs() {
   });
 }
 
-/** Perfis para Admin Supremo (Landing Page Analytics). Só habilitado para super_admin. */
+/**
+ * Perfis para Admin Supremo (Landing Page Analytics).
+ * SELECT direto com join — RLS desabilitado em profiles/companies na migração (fase single-tenant).
+ * Só habilitado para super_admin no front; sem sessão a query não roda.
+ */
 export function useProfilesForAdmin() {
   const { user, isSessionReady } = useAuth();
   const isSuperAdmin = user?.role === "super_admin";
@@ -231,6 +235,9 @@ export function useProfilesForAdmin() {
     retry: 1,
     staleTime: STALE_TIME_MS,
     queryFn: async () => {
+      if (isMockAuth(user)) {
+        return [];
+      }
       const promise = supabase
         .from("profiles")
         .select("*, company:companies(name)")

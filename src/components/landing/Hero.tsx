@@ -1,55 +1,75 @@
 import { Link } from "react-router-dom";
 
-const PARTNERS = [
-  "CASA ÉRGO",
-  "COC",
-  "GIRAFFAS",
-  "OMODA & JAECOO",
-  "MARGRAN",
-  "ACERHOME",
-  "RISEON",
-  "HIKVISION",
-  "IP77",
+import logoCasaErgo from "../../../img/casa-ergo.png";
+import logoCoc from "../../../img/coc.jfif";
+import logoGiraffas from "../../../img/giraffas.jpg";
+import logoOmodaJaecoo from "../../../img/logo_omoda-jaecoo.png";
+import logoMargran from "../../../img/margran.jfif";
+import logoAcHome from "../../../img/AC-Home-Marca.webp";
+import logoRiseon from "../../../img/riseon_brasil_logo.jfif";
+import logoHikvision from "../../../img/hikvision.jfif";
+import logoIp77 from "../../../img/ip77.jfif";
+
+const PARTNER_LOGOS: { src: string; alt: string }[] = [
+  { src: logoCasaErgo, alt: "Casa Érgo" },
+  { src: logoCoc, alt: "COC" },
+  { src: logoGiraffas, alt: "Giraffas" },
+  { src: logoOmodaJaecoo, alt: "Omoda e Jaecoo" },
+  { src: logoMargran, alt: "Margran" },
+  { src: logoAcHome, alt: "Acerhome" },
+  { src: logoRiseon, alt: "Riseon" },
+  { src: logoHikvision, alt: "Hikvision" },
+  { src: logoIp77, alt: "IP77" },
 ];
 
 function HeroPartnersStrip() {
   const Chunk = () => (
-    <div className="flex items-center gap-6 sm:gap-10 shrink-0 px-6 sm:px-10">
-      {PARTNERS.map((name, i) => (
-        <span key={i} className="flex items-center gap-6 sm:gap-10 shrink-0">
-          <span className="hero-partner-item whitespace-nowrap text-sm sm:text-base text-white/70">
-            {name}
-          </span>
-          {i < PARTNERS.length - 1 && (
-            <span className="text-white/30 shrink-0">•</span>
-          )}
-        </span>
+    <div className="flex items-center gap-5 sm:gap-8 md:gap-10 shrink-0 px-6 sm:px-10">
+      {PARTNER_LOGOS.map(({ src, alt }, i) => (
+        <div
+          key={`${alt}-${i}`}
+          className="shrink-0 w-14 h-14 sm:w-16 sm:h-16 md:w-[72px] md:h-[72px] rounded-full overflow-hidden"
+        >
+          <img
+            src={src}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full rounded-full object-contain object-center pointer-events-none select-none"
+          />
+        </div>
       ))}
     </div>
   );
 
   return (
-    <div
-      className="relative w-full overflow-hidden rounded-lg"
-      style={{
-        minHeight: "72px",
-        maskImage: "linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%)",
-        WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%)",
-      }}
-    >
-      <div className="flex items-center overflow-hidden w-full">
-        <div
-          className="flex items-center w-max"
-          style={{
-            animation: "hero-marquee-ltr 40s linear infinite",
-          }}
-        >
-          <Chunk />
-          <Chunk />
-          <Chunk />
+    <>
+      <div
+        className="relative w-full overflow-hidden rounded-lg"
+        aria-hidden
+        style={{
+          minHeight: "88px",
+          maskImage: "linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%)",
+          WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%)",
+        }}
+      >
+        <div className="flex items-center overflow-hidden w-full">
+          <div
+            className="flex items-center w-max"
+            style={{
+              animation: "hero-marquee-ltr 40s linear infinite",
+            }}
+          >
+            <Chunk />
+            <Chunk />
+            <Chunk />
+          </div>
         </div>
       </div>
-    </div>
+      <p className="sr-only">
+        Logotipos de parceiros: {PARTNER_LOGOS.map((p) => p.alt).join(", ")}.
+      </p>
+    </>
   );
 }
 
@@ -91,7 +111,7 @@ export default function Hero() {
           className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6 sm:mb-8 text-xs sm:text-sm font-medium border border-white/10 bg-white/5 text-[#a1a1aa]"
         >
           <span className="w-2 h-2 rounded-full bg-[#14AB5D] animate-pulse" />
-          Onboarding aberto
+          Experiência gamificada
         </div>
 
         {/* Título */}
@@ -103,7 +123,7 @@ export default function Hero() {
             color: "#FFFFFF",
           }}
         >
-          Recarga elétrica, agora como experiência
+          Recarga elétrica, agora é experiência
         </h1>
 
         {/* Subtexto */}

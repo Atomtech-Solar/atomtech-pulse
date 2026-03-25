@@ -6,7 +6,7 @@ export type LeadPipelineStatus = "new" | "contact" | "converted";
 export const LEAD_STATUS_LABEL: Record<LeadPipelineStatus, string> = {
   new: "Novo",
   contact: "Em contato",
-  converted: "Convertido",
+  converted: "Atendido",
 };
 
 export const INTEREST_LABELS: Record<LeadInterestValue, string> = {
@@ -125,6 +125,7 @@ export function formatDataJsonForDisplay(data: Json | null, interestType: string
       push("place_type", "Tipo de local");
       push("has_parking", "Vaga própria");
       push("power_type", "Rede elétrica");
+      push("vehicle_flow", "Fluxo de veículos");
       push("image_url", "Imagem");
       break;
     case "anunciar":

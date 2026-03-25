@@ -12,33 +12,33 @@ import {
 const SERVICES = [
   {
     icon: Zap,
-    title: "Rede de recarga",
-    description: "Conecte seu carregador à maior rede gamificada de mobilidade elétrica do Brasil.",
+    title: "Economia Inteligente",
+    description: "Pague menos por kWh e ainda receba benefícios. Na TOP UP, o custo da recarga volta para você em forma de recompensas.",
   },
   {
     icon: MapPin,
-    title: "Pontos de carga",
-    description: "Encontre estações próximas e gerencie sua rede de pontos de forma inteligente.",
+    title: "Energia que Vira Jogo",
+    description: "Transformamos o tempo de recarga em uma experiência interativa com moedas, bônus e desafios em tempo real.",
   },
   {
     icon: BarChart3,
-    title: "Gestão e analytics",
-    description: "Acompanhe sessões, receita e métricas em tempo real no seu dashboard.",
+    title: "Audiência de Alto Valor",
+    description: "Motoristas permanecem de 15 a 40 minutos conectados. Um público premium, altamente engajado e pronto para interagir.",
   },
   {
     icon: Shield,
-    title: "Segurança OCPP",
-    description: "Protocolo padronizado para comunicação segura entre estações e sistema.",
+    title: "Patrocínios Premium",
+    description: "Marcas aparecem de forma nativa na experiência. Sem poluição visual, com alto impacto e engajamento real.",
   },
   {
     icon: Battery,
-    title: "Carga inteligente",
-    description: "Controle horários, tarifas e disponibilidade dos conectores remotamente.",
+    title: "ESG Integrado",
+    description: "Recompensas podem ser convertidas em doações e impacto ambiental, conectando tecnologia com propósito.",
   },
   {
     icon: Settings,
-    title: "Integração total",
-    description: "API e webhooks para integrar com seu sistema de gestão ou aplicativo.",
+    title: "Ecossistema Inteligente",
+    description: "Carregadores, usuários e marcas conectados em uma única plataforma que transforma a cidade em mídia e experiência.",
   },
 ];
 

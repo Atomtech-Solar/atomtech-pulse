@@ -95,7 +95,7 @@ export default function AboutSection() {
 
             <p className="text-base text-[#a1a1aa] leading-relaxed mb-8">
               Esse momento gera uma <span className="font-semibold text-white">audiência cativa de altíssimo valor</span>.
-              O objetivo do EcoArcade é preencher esse tempo com uma experiência arcade rápida, sofisticada e recompensadora,
+              O objetivo da Top-up é preencher esse tempo com uma experiência arcade rápida, sofisticada e recompensadora,
               integrada diretamente à plataforma da Atomtech.
             </p>
 
