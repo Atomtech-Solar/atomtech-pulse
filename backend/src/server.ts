@@ -26,7 +26,13 @@ process.on("unhandledRejection", (reason, promise) => {
 });
 
 // ========== Validação de variáveis de ambiente ==========
+/** Porta HTTP (API + WebSocket upgrade OCPP/realtime). */
 const PORT = Number(process.env.PORT) || 8080;
+/**
+ * Bind em todas as interfaces — obrigatório para carregadores e proxy (Nginx) no VPS.
+ * Use 127.0.0.1 só em dev local se não quiser expor na rede.
+ */
+const HOST = (process.env.HOST ?? "0.0.0.0").trim() || "0.0.0.0";
 
 if (!isSupabaseConfigured()) {
   console.warn(
@@ -87,9 +93,23 @@ server.on("upgrade", (request, socket, head) => {
 });
 
 // ========== Iniciar servidor ==========
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`API: http://0.0.0.0:${PORT}`);
-  console.log(`WebSocket Realtime: ws://0.0.0.0:${PORT}${REALTIME_PATH}`);
-  console.log(`OCPP: ws://0.0.0.0:${PORT}${OCPP_PATH_PREFIX}{chargePointId}`);
+server.listen(PORT, HOST, () => {
+  console.log(`[server] listening on http://${HOST}:${PORT} (OCPP + API + WS upgrade)`);
+  console.log(`[server] health: http://${HOST}:${PORT}/health`);
+  console.log(`[server] OCPP WebSocket path: ws://<host>:${PORT}${OCPP_PATH_PREFIX}<chargePointId> (use wss:// atrás de TLS)`);
 });
+
+function shutdown(signal: string) {
+  console.log(`[server] ${signal} recebido — encerrando conexões...`);
+  server.close(() => {
+    console.log("[server] HTTP encerrado.");
+    process.exit(0);
+  });
+  setTimeout(() => {
+    console.error("[server] timeout no shutdown — forçando exit.");
+    process.exit(1);
+  }, 10_000).unref();
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

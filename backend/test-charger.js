@@ -1,9 +1,8 @@
 const WebSocket = require("ws");
 
-// URL do backend OCPP no Railway (override via OCPP_SERVER_URL para testes locais)
+// Base HTTP(S) do backend — ex.: https://ocpp.seudominio.com ou http://127.0.0.1:8080
 const SERVER_BASE =
-  process.env.OCPP_SERVER_URL ||
-  "https://renewed-exploration-production.up.railway.app";
+  process.env.OCPP_SERVER_URL || "http://127.0.0.1:8080";
 const CHARGER_ID = "TEST_CHARGER";
 const WS_URL = `${SERVER_BASE.replace(/^http/, "ws")}/ocpp/${CHARGER_ID}`;
 

@@ -16,6 +16,8 @@ COPY backend/ ./
 # Build TypeScript
 RUN pnpm run build
 
+# Alinhado ao default do backend (PORT) — Railway/Docker costumam injetar PORT
+ENV PORT=3000
 EXPOSE 3000
 
 CMD ["pnpm", "start"]

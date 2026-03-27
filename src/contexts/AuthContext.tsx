@@ -12,7 +12,6 @@ import { supabase, SUPABASE_AUTH_STORAGE_KEY } from "@/lib/supabaseClient";
 import {
   isSupabaseAuthError,
   logPermissionError,
-  onSessionInvalid,
 } from "@/lib/supabaseAuthUtils";
 
 const STORAGE_KEY = "topup_user";
@@ -189,8 +188,6 @@ function redirectToLoginAfterLogout(): void {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const LOGIN_TIMEOUT_MS = 15000;
-/** Timeout curto para getSession - sessões stale causam refresh lento (segundos). */
-const SESSION_CHECK_TIMEOUT_MS = 500;
 /** Timeout para buscar perfil do usuário (evita loading infinito em /dashboard após F5). */
 const PROFILE_TIMEOUT_MS = 12000;
 
@@ -228,6 +225,31 @@ function hasStoredSupabaseSession(): boolean {
     /* ignore */
   }
   return false;
+}
+
+/** User id na sessão persistida (fallback quando getSession falha sem logout). */
+function readUserIdFromSupabaseStorage(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const custom = localStorage.getItem(SUPABASE_AUTH_STORAGE_KEY);
+    if (custom) {
+      const parsed = JSON.parse(custom) as { user?: { id?: string } };
+      if (parsed?.user?.id) return String(parsed.user.id);
+    }
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith("sb-") && key.includes("-auth-token")) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw) as { user?: { id?: string } };
+          if (parsed?.user?.id) return String(parsed.user.id);
+        }
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, msg: string): Promise<T> {
@@ -272,6 +294,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const initRan = useRef(false);
   const loginJustCompletedRef = useRef(false);
   const registrationSuccessPendingRef = useRef(false);
+  /** Evita revalidar perfil a cada TOKEN_REFRESHED (causava logout em falha transitória em `profiles`). */
+  const userRef = useRef<AuthUser | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(
@@ -279,6 +303,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const applyAuthUser = useCallback((authUser: AuthUser | null) => {
+    userRef.current = authUser;
     setUser(authUser);
     if (authUser?.company_id != null) {
       setSelectedCompanyId(authUser.company_id);
@@ -293,6 +318,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearAuthStorage();
     }
   }, []);
+
+  /** Quando a API de perfil falha, mantém a sessão JWT e reaplica o último usuário salvo (não super_admin). */
+  const tryApplyCachedUserForSession = useCallback((sessionUserId: string): boolean => {
+    const cached = parseStoredUser();
+    if (!cached) return false;
+    if (String(cached.id) !== String(sessionUserId)) return false;
+    applyAuthUser(cached);
+    AUTH_LOG.auth("Perfil indisponível — sessão mantida com cache local até revalidar.");
+    return true;
+  }, [applyAuthUser]);
 
   const loadProfileAndApply = useCallback(
     async (userId: string): Promise<boolean> => {
@@ -341,48 +376,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           applyAuthUser(authUser);
           return true;
         }
+        return tryApplyCachedUserForSession(userId);
       } catch (err) {
         if (isSupabaseAuthError(err)) {
           AUTH_LOG.auth("Falha de autenticação ao buscar perfil", {
             error: err instanceof Error ? err.message : String(err),
           });
-          return false;
+          return tryApplyCachedUserForSession(userId);
         }
       }
-      return false;
+      return tryApplyCachedUserForSession(userId);
     },
-    [applyAuthUser]
+    [applyAuthUser, tryApplyCachedUserForSession]
   );
-
-  const forceLogout = useCallback(async () => {
-    await signOutLocalWithTimeout();
-    clearSupabaseLocalSession();
-    clearAuthStorage();
-    setUser(null);
-    setSelectedCompanyId(null);
-    redirectToLoginAfterLogout();
-  }, []);
 
   const logout = useCallback(async () => {
     await signOutLocalWithTimeout();
     clearSupabaseLocalSession();
     clearAuthStorage();
+    userRef.current = null;
     setUser(null);
     setSelectedCompanyId(null);
     redirectToLoginAfterLogout();
   }, []);
 
-  useEffect(() => {
-    const unsubSessionInvalid = onSessionInvalid(() => {
-      forceLogout();
-    });
-    return unsubSessionInvalid;
-  }, [forceLogout]);
-
-  // Refresh de sessão: (1) ao retornar à aba, (2) a cada 50s quando ativo (evita token expirado após ~1 min de inatividade)
+  // O cliente Supabase já usa autoRefreshToken; refresh manual frequente gerava TOKEN_REFRESHED + revalidação de perfil.
+  // Só tenta refresh ao voltar à aba (abas em background podem atrasar o relógio do refresh automático).
   useEffect(() => {
     const doRefresh = () => {
-      if (!user) return;
+      if (!userRef.current) return;
       supabase.auth
         .refreshSession()
         .then(({ error }) => {
@@ -396,12 +418,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    const interval = setInterval(doRefresh, 50 * 1000); // 50 segundos
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      clearInterval(interval);
-    };
-  }, [user]);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -410,9 +428,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (event === "SIGNED_OUT") {
           clearAuthStorage();
+          userRef.current = null;
           setUser(null);
           setSelectedCompanyId(null);
           return;
+        }
+
+        // Renovação automática de JWT: não buscar `profiles` de novo — falha transitória derrubava a sessão inteira.
+        if (event === "TOKEN_REFRESHED" && session?.user) {
+          const cur = userRef.current;
+          if (cur && String(cur.id) === session.user.id) {
+            return;
+          }
         }
 
         if (
@@ -433,19 +460,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (session?.user) {
         try {
-          const ok = await loadProfileAndApply(session.user.id);
-          if (!ok && !registrationSuccessPendingRef.current) {
-            await forceLogout();
-          }
+          await loadProfileAndApply(session.user.id);
         } catch (err) {
           if (!registrationSuccessPendingRef.current) {
             logPermissionError("onAuthStateChange loadProfile", err);
-            await forceLogout();
           }
         }
       } else {
         // Sessão nula (expirada/logout) → limpar tudo. Não restaurar de localStorage.
         clearAuthStorage();
+        userRef.current = null;
         setUser(null);
         setSelectedCompanyId(null);
       }
@@ -453,7 +477,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
     return () => subscription.unsubscribe();
-  }, [loadProfileAndApply, forceLogout]);
+  }, [loadProfileAndApply]);
 
   const loadUserFromStorage = useCallback(async () => {
     if (initRan.current) return;
@@ -466,82 +490,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!hasStoredSupabaseSession()) {
         AUTH_LOG.auth("Sessão inexistente (storage vazio) → skip getSession");
         clearAuthStorage();
+        userRef.current = null;
         setUser(null);
         setSelectedCompanyId(null);
         setIsLoading(false);
         return;
       }
 
-      type SessionResult = Awaited<ReturnType<typeof supabase.auth.getSession>>;
-      const sessionPromise = supabase.auth.getSession();
-      const timeoutPromise: Promise<SessionResult> = new Promise((resolve) =>
-        setTimeout(() => {
-          AUTH_LOG.auth("getSession timeout - sessão stale, limpando", {
-            timeoutMs: SESSION_CHECK_TIMEOUT_MS,
-          });
-          resolve({ data: { session: null }, error: null } as SessionResult);
-        }, SESSION_CHECK_TIMEOUT_MS)
-      );
-
       const {
         data: { session },
         error: sessionError,
-      } = await Promise.race([sessionPromise, timeoutPromise]);
+      } = await supabase.auth.getSession();
 
       const elapsed = Math.round(performance.now() - t0);
       AUTH_LOG.start(`getSession em ${elapsed}ms, session=${!!session}`);
 
       if (sessionError) {
-        AUTH_LOG.auth("Falha ao obter sessão", { error: String(sessionError?.message ?? sessionError) });
-        try {
-          await supabase.auth.signOut();
-        } catch {
-          /* ignore */
+        AUTH_LOG.warn("getSession retornou erro (sessão não encerrada automaticamente)", {
+          error: String(sessionError?.message ?? sessionError),
+        });
+        const uid = readUserIdFromSupabaseStorage();
+        if (uid && tryApplyCachedUserForSession(uid)) {
+          return;
         }
-        clearAuthStorage();
-        setUser(null);
-        setSelectedCompanyId(null);
         return;
       }
 
       if (session?.user) {
         try {
-          const ok = await loadProfileAndApply(session.user.id);
-          if (!ok) {
-            await forceLogout();
-          }
+          await loadProfileAndApply(session.user.id);
         } catch (err) {
           logPermissionError("loadUserFromStorage loadProfile", err);
-          await forceLogout();
         }
         AUTH_LOG.auth("Sessão restaurada", { email: session.user.email });
       } else {
-        // Timeout ou sessão nula → limpar storage Supabase (evita delay no próximo acesso)
-        AUTH_LOG.auth("Sessão inexistente ou expirada → limpando storage");
-        try {
-          await supabase.auth.signOut();
-        } catch {
-          /* ignore */
-        }
+        AUTH_LOG.auth("Sem sessão ativa no cliente — limpando estado local (sem redirect forçado)");
+        clearSupabaseLocalSession();
         clearAuthStorage();
+        userRef.current = null;
         setUser(null);
         setSelectedCompanyId(null);
       }
     } catch (err) {
       AUTH_LOG.error("loadUserFromStorage error:", err);
       logPermissionError("loadUserFromStorage", err);
-      try {
-        await supabase.auth.signOut();
-      } catch {
-        /* ignore */
-      }
-      clearAuthStorage();
-      setUser(null);
-      setSelectedCompanyId(null);
+      const uid = readUserIdFromSupabaseStorage();
+      if (uid) tryApplyCachedUserForSession(uid);
     } finally {
       setIsLoading(false);
     }
-  }, [loadProfileAndApply, forceLogout]);
+  }, [loadProfileAndApply, tryApplyCachedUserForSession]);
 
   const login = useCallback((email: string, password: string): string | null => {
     const found = MOCK_USERS.find(

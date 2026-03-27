@@ -10,10 +10,6 @@ import {
   sanitizeChargePointId,
 } from "@/lib/chargePointIdUtils";
 import { formatCep, parseCep } from "@/lib/formatCep";
-import {
-  isSupabaseAuthError,
-  dispatchSessionInvalid,
-} from "@/lib/supabaseAuthUtils";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -407,15 +403,11 @@ export default function StationsPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro inesperado.";
       console.error("[Stations] Erro ao criar estação:", err);
-      if (isSupabaseAuthError(err)) {
-        dispatchSessionInvalid();
-      } else {
-        toast({
-          title: "Erro ao cadastrar estação",
-          description: msg,
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Erro ao cadastrar estação",
+        description: msg,
+        variant: "destructive",
+      });
     } finally {
       setUploadProgress(false);
     }

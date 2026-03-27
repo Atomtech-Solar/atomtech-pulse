@@ -10,10 +10,6 @@ import { usePushNotifications } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/hooks/use-toast";
-import {
-  isSupabaseAuthError,
-  dispatchSessionInvalid,
-} from "@/lib/supabaseAuthUtils";
 
 export default function Push() {
   const { selectedCompanyId } = useAuth();
@@ -37,8 +33,7 @@ export default function Push() {
     });
     setLoading(false);
     if (error) {
-      if (isSupabaseAuthError(error)) dispatchSessionInvalid();
-      else toast({ title: "Erro ao criar notificação", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao criar notificação", description: error.message, variant: "destructive" });
       return;
     }
     setTitle("");

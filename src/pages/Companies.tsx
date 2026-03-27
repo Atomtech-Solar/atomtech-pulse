@@ -12,10 +12,6 @@ import { Plus, Building2, AlertCircle, Globe, Image } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/hooks/use-toast";
-import {
-  isSupabaseAuthError,
-  dispatchSessionInvalid,
-} from "@/lib/supabaseAuthUtils";
 
 const defaultForm = {
   name: "",
@@ -58,8 +54,7 @@ export default function Companies() {
     });
     setSaving(false);
     if (error) {
-      if (isSupabaseAuthError(error)) dispatchSessionInvalid();
-      else toast({ title: "Erro ao criar empresa", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao criar empresa", description: error.message, variant: "destructive" });
       return;
     }
     toast({ title: "Empresa criada", description: form.name });

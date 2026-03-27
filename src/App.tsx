@@ -4,10 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import {
-  isSupabaseAuthError,
-  dispatchSessionInvalid,
-} from "@/lib/supabaseAuthUtils";
+import { isSupabaseAuthError } from "@/lib/supabaseAuthUtils";
 import { AuthProvider } from "@/contexts/AuthContext";
 import AuthInit from "@/components/AuthInit";
 import AdminProtectedRoute from "@/components/AdminProtectedRoute";
@@ -39,25 +36,11 @@ function createQueryClient() {
     defaultOptions: {
       queries: {
         retry: (failureCount, error) => {
-          if (isSupabaseAuthError(error)) {
-            dispatchSessionInvalid();
-            return false;
-          }
+          if (isSupabaseAuthError(error)) return false;
           return failureCount < 2;
         },
       },
     },
-  });
-  client.getQueryCache().subscribe((event) => {
-    if (
-      event.type === "updated" &&
-      event.query.state.status === "error" &&
-      event.query.state.error
-    ) {
-      if (isSupabaseAuthError(event.query.state.error)) {
-        dispatchSessionInvalid();
-      }
-    }
   });
   return client;
 }

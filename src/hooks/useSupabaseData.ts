@@ -4,7 +4,6 @@ import type { Tables } from "@/types/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   isSupabaseAuthError,
-  dispatchSessionInvalid,
   logPermissionError,
 } from "@/lib/supabaseAuthUtils";
 import {
@@ -24,10 +23,6 @@ const STALE_TIME_MS = 60000;
 function handleQueryError(context: string, error: unknown): never {
   if (isSupabaseAuthError(error)) {
     logPermissionError(context, error);
-    dispatchSessionInvalid();
-  }
-  if (error instanceof Error && /tempo limite|timeout/i.test(error.message)) {
-    dispatchSessionInvalid();
   }
   throw error;
 }

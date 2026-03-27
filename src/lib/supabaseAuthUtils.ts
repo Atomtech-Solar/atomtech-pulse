@@ -55,6 +55,10 @@ export function logPermissionError(context: string, error: unknown): void {
 
 const SESSION_INVALID_EVENT = "auth:session-invalid";
 
+/**
+ * Antes disparava logout global; política atual: sair só pelo botão "Sair" ou limpeza real de sessão.
+ * Mantido para compatibilidade com chamadas antigas — não encerra sessão nem redireciona.
+ */
 export function dispatchSessionInvalid(): void {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(SESSION_INVALID_EVENT));

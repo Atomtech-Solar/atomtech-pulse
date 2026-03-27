@@ -7,10 +7,6 @@ import { useTariffs } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/hooks/use-toast";
-import {
-  isSupabaseAuthError,
-  dispatchSessionInvalid,
-} from "@/lib/supabaseAuthUtils";
 
 const days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
 
@@ -35,8 +31,7 @@ export default function Promotions() {
         [field]: numeric,
       } as any);
       if (error) {
-        if (isSupabaseAuthError(error)) dispatchSessionInvalid();
-        else toast({ title: "Erro ao salvar tarifa", description: error.message, variant: "destructive" });
+        toast({ title: "Erro ao salvar tarifa", description: error.message, variant: "destructive" });
       } else {
         refetch();
       }
@@ -47,8 +42,7 @@ export default function Promotions() {
       .update({ [field]: numeric } as any)
       .eq("id", existing.id);
     if (error) {
-      if (isSupabaseAuthError(error)) dispatchSessionInvalid();
-      else toast({ title: "Erro ao salvar tarifa", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao salvar tarifa", description: error.message, variant: "destructive" });
     } else {
       refetch();
     }
