@@ -135,7 +135,7 @@ export default function Login() {
                 <Zap className="h-7 w-7 text-white" />
               </div>
               <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-[1.65rem]">
-                TOP-UP
+                Luma Gen
               </h1>
               <p className="mt-1.5 text-sm text-[#a1a1aa]">Gestão de carregadores veiculares</p>
             </div>

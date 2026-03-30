@@ -36,7 +36,7 @@ export default function LandingHeader() {
           <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#14AB5D" }}>
             <Zap className="w-5 h-5 text-white" />
           </div>
-          <span className="text-lg sm:text-xl">TOP-UP</span>
+          <span className="text-lg sm:text-xl">Luma Gen</span>
         </Link>
 
         {/* Centro: links de navegação (a partir de 1000px) */}

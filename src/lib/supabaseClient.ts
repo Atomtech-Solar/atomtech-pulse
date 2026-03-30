@@ -1,5 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
+import {
+  migrateLegacyAuthStorageKeys,
+  SUPABASE_AUTH_STORAGE_KEY,
+} from "@/lib/authStorageKeys";
+
+migrateLegacyAuthStorageKeys();
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -36,8 +42,7 @@ if (typeof window !== "undefined") {
 const url = supabaseUrl ?? "";
 const key = supabaseAnonKey ?? "";
 
-/** Chave do localStorage para sessão Supabase (evita conflito com outras apps). */
-export const SUPABASE_AUTH_STORAGE_KEY = "topup-supabase-auth";
+export { SUPABASE_AUTH_STORAGE_KEY };
 
 export const supabase = createClient<Database>(url, key, {
   auth: {

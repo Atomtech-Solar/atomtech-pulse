@@ -39,7 +39,7 @@ export function RegistrationSuccessModal({
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-3 pt-2 text-center text-sm text-muted-foreground leading-relaxed">
-              <p>Seja bem-vindo à Top-up.</p>
+              <p>Seja bem-vindo à Luma Gen.</p>
               <p>
                 Sua solicitação foi recebida e está em análise por nossa equipe
                 administrativa. Em breve, entraremos em contato para dar

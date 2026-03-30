@@ -1,5 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  SIDEBAR_COLLAPSED as SIDEBAR_COLLAPSED_KEY,
+  SIDEBAR_EXPANDED_GROUP as SIDEBAR_EXPANDED_GROUP_KEY,
+} from "@/lib/authStorageKeys";
+import {
   LayoutDashboard,
   Activity,
   Zap,
@@ -91,8 +95,8 @@ export const SIDEBAR_MENU: MenuGroup[] = [
 ];
 
 export const SIDEBAR_STORAGE_KEYS = {
-  expandedGroup: "topup_sidebar_expanded_group",
-  collapsed: "topup_sidebar_collapsed",
+  expandedGroup: SIDEBAR_EXPANDED_GROUP_KEY,
+  collapsed: SIDEBAR_COLLAPSED_KEY,
 } as const;
 
 export const SIDEBAR_COLLAPSED_WIDTH = 64; // w-16

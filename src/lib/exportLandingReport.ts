@@ -21,7 +21,7 @@ export async function exportLandingToPdf(
     import("jspdf-autotable"),
   ]);
   const doc = new jsPDF();
-  const title = "Landing Page Analytics - TOP-UP";
+  const title = "Landing Page Analytics - Luma Gen";
   doc.setFontSize(16);
   doc.text(title, 14, 20);
   doc.setFontSize(10);
@@ -53,7 +53,7 @@ export async function exportLandingToExcel(
 ): Promise<void> {
   const XLSX = await import("xlsx");
   const wsData: (string | number)[][] = [
-    ["Landing Page Analytics - TOP-UP"],
+    ["Landing Page Analytics - Luma Gen"],
     [],
     ["Métricas", ""],
     ["Total de cadastros", metrics.total],

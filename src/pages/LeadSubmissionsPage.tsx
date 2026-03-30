@@ -52,9 +52,10 @@ import {
   boolLabel,
 } from "@/lib/leadSubmissionUi";
 import { LEAD_INTEREST_OPTIONS } from "@/constants/leadInterests";
+import { STORAGE_KEY_LEADS_COLUMNS } from "@/lib/authStorageKeys";
 import { cn } from "@/lib/utils";
 
-const COL_STORAGE = "topup_leads_visible_columns_v1";
+const COL_STORAGE = STORAGE_KEY_LEADS_COLUMNS;
 
 export type LeadColumnId =
   | "name"

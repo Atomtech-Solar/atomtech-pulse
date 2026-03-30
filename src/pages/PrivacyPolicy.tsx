@@ -13,7 +13,7 @@ export default function PrivacyPolicy() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#14AB5D] shadow-[0_0_16px_rgba(20,171,93,0.35)]">
               <Zap className="h-4 w-4 text-white" />
             </div>
-            <span className="font-display text-lg font-bold">TOP-UP</span>
+            <span className="font-display text-lg font-bold">Luma Gen</span>
           </Link>
           <Link
             to="/"
@@ -44,7 +44,7 @@ export default function PrivacyPolicy() {
         <section className="mt-10 space-y-4">
           <h2 className="text-lg font-semibold text-white">2. Consentimento e Liberdade:</h2>
           <p className="leading-relaxed text-[#a1a1aa]">
-            Ao clicar em &quot;Enviar&quot; e marcar a caixa de seleção, você dá seu consentimento livre para que a Atom Tech / Top-Up processe seus dados. Você não é obrigado a fornecer essas informações, mas elas são indispensáveis para gerarmos seu diagnóstico ou orçamento.
+            Ao clicar em &quot;Enviar&quot; e marcar a caixa de seleção, você dá seu consentimento livre para que a Atom Tech / Luma Generation processe seus dados. Você não é obrigado a fornecer essas informações, mas elas são indispensáveis para gerarmos seu diagnóstico ou orçamento.
           </p>
         </section>
 

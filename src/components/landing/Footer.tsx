@@ -55,7 +55,7 @@ export default function Footer() {
           <div className="flex flex-col gap-3 w-full max-w-sm min-[700px]:max-[999px]:col-span-2 min-[1000px]:col-span-1 min-[700px]:max-[999px]:max-w-none min-[1000px]:max-w-none">
             <Link to="/" className="inline-flex items-center gap-2 text-white font-semibold hover:text-[#14AB5D] transition-colors shrink-0">
               <Zap className="w-6 h-6 text-[#14AB5D] shrink-0" />
-              <span className="text-lg">TOP-UP</span>
+              <span className="text-lg">Luma Gen</span>
             </Link>
             <p className="text-sm text-[#a1a1aa] leading-relaxed">
               Gestão inteligente de carregadores veiculares. Conectamos pontos de carga, empresas e usuários em um ecossistema gamificado de mobilidade elétrica.
@@ -115,7 +115,7 @@ export default function Footer() {
       <div className="border-t border-white/10 py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <p className="text-center text-xs sm:text-sm text-[#a1a1aa]">
-            © {new Date().getFullYear()} Atom Tech / TOP-UP. Todos os direitos reservados.
+            © {new Date().getFullYear()} Atom Tech / Luma Generation. Todos os direitos reservados.
           </p>
         </div>
       </div>

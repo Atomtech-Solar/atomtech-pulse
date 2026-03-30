@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Sidebar } from "@/components/Sidebar";
 import { Zap, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { STORAGE_KEY_THEME } from "@/lib/authStorageKeys";
+import { BRAND_SHORT } from "@/constants/branding";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { getPageConfig } from "@/config/dashboardHeaderConfig";
 import { useIsSidebarDrawer } from "@/hooks/use-mobile";
@@ -47,10 +49,10 @@ export default function DashboardLayout() {
     setIsDark(nextDark);
     if (nextDark) {
       document.documentElement.classList.add("dark");
-      localStorage.setItem("topup_theme", "dark");
+      localStorage.setItem(STORAGE_KEY_THEME, "dark");
     } else {
       document.documentElement.classList.remove("dark");
-      localStorage.setItem("topup_theme", "light");
+      localStorage.setItem(STORAGE_KEY_THEME, "light");
     }
   };
 
@@ -116,7 +118,7 @@ export default function DashboardLayout() {
             <Zap className="h-4 w-4 text-white" />
           </div>
           <span className="font-display font-bold text-lg text-foreground tracking-tight truncate">
-            TOP-UP
+            {BRAND_SHORT}
           </span>
           <button
             type="button"

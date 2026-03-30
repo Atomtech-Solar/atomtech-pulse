@@ -302,7 +302,7 @@ export function RegisterForm({ embedded, onSwitchToLogin, interactive = true, pl
                 >
                   Política de Privacidade e Proteção de Dados (LGPD)
                 </Link>{" "}
-                da Atom Tech / Top-Up, autorizando o tratamento de seus dados conforme descrito no documento.
+                da Atom Tech / Luma Generation, autorizando o tratamento de seus dados conforme descrito no documento.
               </span>
             </label>
           </div>

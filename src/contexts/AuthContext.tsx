@@ -9,13 +9,14 @@ import {
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, SUPABASE_AUTH_STORAGE_KEY } from "@/lib/supabaseClient";
+import { STORAGE_KEY_USER, STORAGE_KEY_COMPANY } from "@/lib/authStorageKeys";
 import {
   isSupabaseAuthError,
   logPermissionError,
 } from "@/lib/supabaseAuthUtils";
 
-const STORAGE_KEY = "topup_user";
-const COMPANY_KEY = "topup_company";
+const STORAGE_KEY = STORAGE_KEY_USER;
+const COMPANY_KEY = STORAGE_KEY_COMPANY;
 const PENDING_COMPANY_KEY = "pending_company_signup";
 
 export type Role = "super_admin" | "company_admin" | "manager" | "viewer";
@@ -69,7 +70,7 @@ const MOCK_USERS: (AuthUser & { password: string })[] = [
     password: "123456",
     role: "super_admin",
     company_id: null,
-    name: "Admin TOP-UP",
+    name: "Admin Luma Gen",
   },
   {
     id: 2,
@@ -400,26 +401,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     redirectToLoginAfterLogout();
   }, []);
 
-  // O cliente Supabase já usa autoRefreshToken; refresh manual frequente gerava TOKEN_REFRESHED + revalidação de perfil.
-  // Só tenta refresh ao voltar à aba (abas em background podem atrasar o relógio do refresh automático).
-  useEffect(() => {
-    const doRefresh = () => {
-      if (!userRef.current) return;
-      supabase.auth
-        .refreshSession()
-        .then(({ error }) => {
-          if (error) AUTH_LOG.auth("Refresh token falhou", { error: error.message });
-        })
-        .catch(() => {});
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") doRefresh();
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, []);
+  /** autoRefreshToken do cliente renova o JWT; refresh extra ao focar aba gerava race e SIGNED_OUT espúrio. */
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -427,6 +409,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         AUTH_LOG.auth(`onAuthStateChange: ${event}`, { hasSession: !!session?.user });
 
         if (event === "SIGNED_OUT") {
+          const { data: { session: still } } = await supabase.auth.getSession();
+          if (still?.user) {
+            AUTH_LOG.warn(
+              "SIGNED_OUT ignorado — sessão ainda presente após getSession (evita limpar UI durante refresh)."
+            );
+            return;
+          }
           clearAuthStorage();
           userRef.current = null;
           setUser(null);
@@ -467,7 +456,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       } else {
-        // Sessão nula (expirada/logout) → limpar tudo. Não restaurar de localStorage.
+        if (event === "TOKEN_REFRESHED") {
+          return;
+        }
+        const { data: { session: recheck } } = await supabase.auth.getSession();
+        if (recheck?.user) {
+          AUTH_LOG.warn("onAuthStateChange: sessão ausente no evento mas getSession ainda ativa — mantendo estado.");
+          return;
+        }
         clearAuthStorage();
         userRef.current = null;
         setUser(null);

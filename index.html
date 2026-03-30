@@ -3,15 +3,15 @@
   <head>
     <script>
       (function() {
-        var theme = localStorage.getItem('topup_theme');
+        var theme = localStorage.getItem('luma_gen_theme') || localStorage.getItem('topup_theme');
         if (theme === 'light') document.documentElement.classList.remove('dark');
         else if (theme === 'dark' || !theme) document.documentElement.classList.add('dark');
       })();
     </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TOP-UP – Gestão de Carregadores</title>
-    <meta name="description" content="Dashboard de gestão de rede de carregadores veiculares TOP-UP" />
+    <title>Luma Gen – Gestão de Carregadores</title>
+    <meta name="description" content="Luma Generation — gestão de rede de carregadores veiculares elétricos" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
