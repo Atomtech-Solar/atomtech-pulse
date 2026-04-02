@@ -44,22 +44,34 @@ export type CreateStationInput = {
   // Fotos (4/4)
   main_photo_url?: string | null;
   photo_urls?: string[] | null;
+  /** OCPP: WS (IP) ou WSS (domínio) */
+  connection_type?: "ws" | "wss" | null;
+  ocpp_host?: string | null;
+  ocpp_port?: number | null;
 };
 
-const VALID_STATUSES = ["offline", "online", "charging", "faulted", "unavailable"] as const;
+const VALID_STATUSES = ["offline", "online", "error"] as const;
 
 const STATUS_ORDER: Record<string, number> = {
   online: 0,
-  charging: 1,
+  error: 1,
   offline: 2,
-  unavailable: 3,
-  faulted: 4,
 };
 
 function mapRowToStation(row: Record<string, unknown>): Station {
-  const statusStr = String(row.status || "").toLowerCase();
-  const status: Station["status"] =
-    VALID_STATUSES.includes(statusStr as Station["status"]) ? (statusStr as Station["status"]) : "offline";
+  const raw = String(row.status || "").toLowerCase();
+  let normalized =
+    raw === "charging"
+      ? "online"
+      : raw === "faulted" || raw === "unavailable"
+        ? "offline"
+        : raw;
+  if (!VALID_STATUSES.includes(normalized as Station["status"])) normalized = "offline";
+  const status = normalized as Station["status"];
+  const ct = row.connection_type;
+  const connection_type: Station["connection_type"] =
+    ct === "ws" || ct === "wss" ? ct : "wss";
+
   return {
     id: String(row.id),
     name: String(row.name || ""),
@@ -69,6 +81,10 @@ function mapRowToStation(row: Record<string, unknown>): Station {
     last_seen: row.last_seen ? String(row.last_seen) : null,
     charge_point_vendor: row.charge_point_vendor ? String(row.charge_point_vendor) : null,
     charge_point_model: row.charge_point_model ? String(row.charge_point_model) : null,
+    connection_type,
+    ocpp_host: row.ocpp_host != null ? String(row.ocpp_host) : null,
+    ocpp_port: row.ocpp_port != null ? Number(row.ocpp_port) : null,
+    last_error: row.last_error != null ? String(row.last_error) : null,
     city: row.city ? String(row.city) : null,
     uf: row.uf ? String(row.uf) : null,
     total_kwh: Number(row.total_kwh) ?? 0,
@@ -80,13 +96,13 @@ function mapRowToStation(row: Record<string, unknown>): Station {
 /**
  * Lista estações reais do Supabase.
  * - Apenas registros com charge_point_id
- * - Ordenado: online/charging primeiro, depois offline
+ * - Ordenado: online primeiro, depois erro, depois offline
  */
 export async function listStations(companyId?: number | null): Promise<Station[]> {
   let query = supabase
     .from("stations")
     .select(
-      "id, name, charge_point_id, company_id, status, last_seen, charge_point_vendor, charge_point_model, city, uf, total_kwh, total_sessions, created_at"
+      "id, name, charge_point_id, company_id, status, last_seen, last_error, connection_type, ocpp_host, ocpp_port, charge_point_vendor, charge_point_model, city, uf, total_kwh, total_sessions, created_at"
     )
     .not("charge_point_id", "is", null)
     .order("name");
@@ -130,7 +146,7 @@ export async function listStations(companyId?: number | null): Promise<Station[]
     s.connectors = connectorsByStation.get(Number(s.id)) ?? [];
   });
 
-  // Ordenar: online/charging primeiro, depois offline
+  // Ordenar por disponibilidade de conexão
   stations.sort((a, b) => {
     const orderA = STATUS_ORDER[a.status] ?? 99;
     const orderB = STATUS_ORDER[b.status] ?? 99;
@@ -201,6 +217,10 @@ export interface StationDetails {
   // Fotos
   main_photo_url: string | null;
   photo_urls: string[] | null;
+  /** OCPP: ws ou wss */
+  connection_type: "ws" | "wss";
+  ocpp_host: string | null;
+  ocpp_port: number | null;
 }
 
 /**
@@ -220,7 +240,8 @@ export async function getStationDetails(stationId: string): Promise<StationDetai
       city, uf, cep, street, address_number, country, lat, lng, show_location,
       charge_enabled, charge_type, cost_per_kwh, revenue_charge_type, revenue_per_start,
       revenue_tax_percent, revenue_per_kwh,
-      main_photo_url, photo_urls
+      main_photo_url, photo_urls,
+      connection_type, ocpp_host, ocpp_port
     `)
     .eq("id", id)
     .single();
@@ -247,6 +268,7 @@ export async function getStationDetails(stationId: string): Promise<StationDetai
     .from("transactions")
     .select("ocpp_transaction_id, start_time, end_time, energy_kwh, connector_id")
     .eq("station_id", id)
+    .in("status", ["completed", "charging", "paused"])
     .order("start_time", { ascending: false })
     .limit(10);
 
@@ -303,6 +325,9 @@ export async function getStationDetails(stationId: string): Promise<StationDetai
     revenue_per_kwh: row.revenue_per_kwh != null ? Number(row.revenue_per_kwh) : null,
     main_photo_url: row.main_photo_url ? String(row.main_photo_url) : null,
     photo_urls: Array.isArray(row.photo_urls) ? (row.photo_urls as string[]) : null,
+    connection_type: row.connection_type === "ws" ? "ws" : "wss",
+    ocpp_host: row.ocpp_host != null ? String(row.ocpp_host) : null,
+    ocpp_port: row.ocpp_port != null ? Number(row.ocpp_port) : null,
   };
 }
 
@@ -323,6 +348,7 @@ export async function getStationConsumptionByDay(
     .from("transactions")
     .select("start_time, energy_kwh")
     .eq("station_id", id)
+    .eq("status", "completed")
     .gte("start_time", daysAgo.toISOString())
     .not("energy_kwh", "is", null);
 
@@ -367,6 +393,21 @@ export async function updateStationEnabled(
     .update({ enabled })
     .eq("id", id);
   if (error) throw error;
+}
+
+/**
+ * Remove a estação. Conectores e transações ligados são apagados em cascata (FK).
+ */
+export async function deleteStation(stationId: string): Promise<void> {
+  const id = Number(stationId);
+  if (Number.isNaN(id)) throw new Error("ID inválido");
+  const { error } = await supabase.from("stations").delete().eq("id", id);
+  if (error) {
+    if (error.code === "42501" || error.message?.includes("permission denied")) {
+      throw new Error("Sem permissão para excluir esta estação.");
+    }
+    throw new Error(error.message ?? "Erro ao excluir estação.");
+  }
 }
 
 const PG_UNIQUE_VIOLATION = "23505";
@@ -423,6 +464,10 @@ export async function createStation(input: CreateStationInput): Promise<Station>
     revenue_per_kwh: input.revenue_per_kwh != null ? Number(input.revenue_per_kwh) : null,
     main_photo_url: input.main_photo_url?.trim() || null,
     photo_urls: input.photo_urls?.length ? input.photo_urls : null,
+    connection_type: input.connection_type === "ws" ? "ws" : "wss",
+    ocpp_host: input.ocpp_host?.trim() || null,
+    ocpp_port:
+      input.ocpp_port != null && input.ocpp_port > 0 ? Math.floor(Number(input.ocpp_port)) : null,
   };
   // connector_count só é enviado se a migration 20260319 foi aplicada (coluna existe)
   if (input.connector_count != null && input.connector_count > 0) {
@@ -458,6 +503,17 @@ export async function createStation(input: CreateStationInput): Promise<Station>
         const retry = await supabase.from("stations").insert(withoutConnector);
         insertError = retry.error;
         if (!insertError) console.log("[stationsService] Insert sem connector_count OK");
+      }
+      if (insertError && isColMissing) {
+        const withoutOcppConn = { ...cleanInsert };
+        delete (withoutOcppConn as Record<string, unknown>).connector_count;
+        delete (withoutOcppConn as Record<string, unknown>).connection_type;
+        delete (withoutOcppConn as Record<string, unknown>).ocpp_host;
+        delete (withoutOcppConn as Record<string, unknown>).ocpp_port;
+        console.warn("[stationsService] Coluna inexistente, tentando sem campos OCPP connection...");
+        const retryOcpp = await supabase.from("stations").insert(withoutOcppConn);
+        insertError = retryOcpp.error;
+        if (!insertError) console.log("[stationsService] Insert sem OCPP connection OK");
       }
       if (insertError && isColMissing) {
         // Fallback: insert mínimo

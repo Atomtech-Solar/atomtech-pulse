@@ -423,6 +423,11 @@ export type Database = {
           revenue_per_kwh: number | null;
           main_photo_url: string | null;
           photo_urls: string[] | null;
+          connection_type: string;
+          ocpp_host: string | null;
+          ocpp_port: number | null;
+          last_error: string | null;
+          updated_at: string;
         };
         Insert: {
           charge_point_id?: string | null;
@@ -464,6 +469,11 @@ export type Database = {
           revenue_per_kwh?: number | null;
           main_photo_url?: string | null;
           photo_urls?: string[] | null;
+          connection_type?: string;
+          ocpp_host?: string | null;
+          ocpp_port?: number | null;
+          last_error?: string | null;
+          updated_at?: string;
         };
         Update: {
           charge_point_id?: string | null;
@@ -505,6 +515,11 @@ export type Database = {
           revenue_per_kwh?: number | null;
           main_photo_url?: string | null;
           photo_urls?: string[] | null;
+          connection_type?: string;
+          ocpp_host?: string | null;
+          ocpp_port?: number | null;
+          last_error?: string | null;
+          updated_at?: string;
         };
         Relationships: [
           {

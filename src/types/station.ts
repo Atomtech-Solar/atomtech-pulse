@@ -1,10 +1,20 @@
-/** Status possíveis da estação OCPP (atualizado automaticamente pelo backend) */
-export type StationStatus = "offline" | "online" | "charging" | "faulted" | "unavailable";
+/** Conexão com o charge point (WebSocket); não confundir com estado da boca */
+export type StationStatus = "offline" | "online" | "error";
+
+/** Estado operacional da boca (agregado OCPP) */
+export type ConnectorOperationalStatus =
+  | "available"
+  | "charging"
+  | "unavailable"
+  | "error";
+
+/** WS = IP/host + porta típica; WSS = domínio com TLS */
+export type StationConnectionType = "ws" | "wss";
 
 /** Conector (boca) de carregamento OCPP */
 export interface Connector {
   connector_id: number;
-  status: string;
+  status: ConnectorOperationalStatus | string;
   energy_kwh: number;
   power_kw: number;
   current_transaction_id?: number | null;
@@ -20,6 +30,10 @@ export interface Station {
   last_seen: string | null;
   charge_point_vendor: string | null;
   charge_point_model: string | null;
+  connection_type?: StationConnectionType;
+  ocpp_host?: string | null;
+  ocpp_port?: number | null;
+  last_error?: string | null;
   city: string | null;
   uf: string | null;
   total_kwh: number;

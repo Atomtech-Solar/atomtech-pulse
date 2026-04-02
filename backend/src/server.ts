@@ -14,6 +14,7 @@ import {
   getOcppWss,
   OCPP_PATH_PREFIX,
 } from "./ocpp/ocppServer";
+import { startOcppStaleSweep } from "./ocpp/ocppStaleSweep";
 import { isSupabaseConfigured } from "./database/supabaseClient";
 
 // ========== Tratamento global de erros (evita crash do processo) ==========
@@ -60,6 +61,7 @@ startRealtimeServer(server);
 
 // ========== OCPP WebSocket (no mesmo servidor) ==========
 startOcppServer(server, emitRealtime);
+startOcppStaleSweep(emitRealtime);
 
 // ========== Roteamento único de upgrade (evita múltiplos handlers) ==========
 server.on("upgrade", (request, socket, head) => {

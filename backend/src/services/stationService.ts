@@ -1,13 +1,12 @@
 import { getSupabase } from "../database/supabaseClient";
-import { listConnectorsByStation, ensureConnectorsForStation } from "./connectorService";
+import {
+  listConnectorsByStation,
+  ensureConnectorsForStation,
+  setAllConnectorsStatus,
+} from "./connectorService";
 
-export const VALID_STATUSES = [
-  "offline",
-  "online",
-  "charging",
-  "faulted",
-  "unavailable",
-] as const;
+/** Status da estação = apenas conexão WebSocket / erro de infra (não estado da boca) */
+export const VALID_STATUSES = ["offline", "online", "error"] as const;
 
 export type StationStatus = (typeof VALID_STATUSES)[number];
 
@@ -18,6 +17,10 @@ export interface StationRow {
   company_id: number;
   status: string;
   last_seen: string | null;
+  last_error?: string | null;
+  connection_type?: string | null;
+  ocpp_host?: string | null;
+  ocpp_port?: number | null;
   charge_point_vendor?: string | null;
   charge_point_model?: string | null;
   city: string | null;
@@ -39,6 +42,9 @@ export interface CreateStationInput {
   charge_point_vendor?: string | null;
   charge_point_model?: string | null;
   connector_count?: number | null;
+  connection_type?: "ws" | "wss" | null;
+  ocpp_host?: string | null;
+  ocpp_port?: number | null;
 }
 
 /** Sessão recente da estação (transação OCPP) */
@@ -57,7 +63,9 @@ export async function findStationByChargePointId(
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("stations")
-    .select("id, charge_point_id, company_id, name, status, last_seen, charge_point_vendor, charge_point_model, total_kwh, total_sessions, connector_count")
+    .select(
+      "id, charge_point_id, company_id, name, status, last_seen, last_error, connection_type, ocpp_host, ocpp_port, charge_point_vendor, charge_point_model, total_kwh, total_sessions, connector_count"
+    )
     .eq("charge_point_id", chargePointId)
     .single();
 
@@ -65,15 +73,28 @@ export async function findStationByChargePointId(
   return data as unknown as StationRow;
 }
 
-/** Atualiza status e last_seen (BootNotification, conexão) */
+/** Atualiza status e last_seen (BootNotification, conexão). Limpa último erro ao reconectar. */
 export async function updateStationOnline(chargePointId: string): Promise<boolean> {
   const supabase = getSupabase();
+  const { data: before } = await supabase
+    .from("stations")
+    .select("id, status")
+    .eq("charge_point_id", chargePointId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("stations")
-    .update({ status: "online", last_seen: new Date().toISOString() })
+    .update({ status: "online", last_seen: new Date().toISOString(), last_error: null })
     .eq("charge_point_id", chargePointId);
 
-  return !error;
+  if (error) return false;
+
+  const sid = before?.id != null ? Number(before.id) : null;
+  const prev = String(before?.status ?? "");
+  if (sid != null && (prev === "offline" || prev === "error")) {
+    await setAllConnectorsStatus(sid, "unavailable");
+  }
+  return true;
 }
 
 /** Atualiza status, last_seen, vendor e model (BootNotification completo) */
@@ -85,6 +106,7 @@ export async function updateStationBootInfo(
   const updates: Record<string, unknown> = {
     status: "online",
     last_seen: new Date().toISOString(),
+    last_error: null,
   };
   if (vendor != null && vendor !== "") updates.charge_point_vendor = String(vendor).slice(0, 50);
   if (model != null && model !== "") updates.charge_point_model = String(model).slice(0, 50);
@@ -98,15 +120,87 @@ export async function updateStationBootInfo(
   return !error;
 }
 
-/** Marca estação como offline (desconexão WebSocket) */
+/** Marca estação como offline (desconexão WebSocket) e todas as bocas como indisponíveis */
 export async function updateStationOffline(chargePointId: string): Promise<boolean> {
   const supabase = getSupabase();
+  const { data: station } = await supabase
+    .from("stations")
+    .select("id")
+    .eq("charge_point_id", chargePointId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("stations")
     .update({ status: "offline" })
     .eq("charge_point_id", chargePointId);
 
-  return !error;
+  if (error) return false;
+  if (station?.id != null) {
+    await setAllConnectorsStatus(Number(station.id), "unavailable");
+  }
+  return true;
+}
+
+const MAX_LAST_ERROR_LEN = 2000;
+
+/** Erro geral de infra (socket, protocolo); bocas refletem indisponibilidade */
+export async function updateStationError(chargePointId: string, message: string): Promise<boolean> {
+  const supabase = getSupabase();
+  const text = String(message).slice(0, MAX_LAST_ERROR_LEN);
+  const { data: station } = await supabase
+    .from("stations")
+    .select("id")
+    .eq("charge_point_id", chargePointId)
+    .maybeSingle();
+
+  const { error } = await supabase
+    .from("stations")
+    .update({ status: "error", last_error: text })
+    .eq("charge_point_id", chargePointId);
+
+  if (error) return false;
+  if (station?.id != null) {
+    await setAllConnectorsStatus(Number(station.id), "error");
+  }
+  return true;
+}
+
+export type RealtimeEmitFn = (event: string, data: unknown) => void;
+
+/**
+ * Marca como offline estações com last_seen antigo (servidor reiniciado, TCP sem fechar, etc.).
+ */
+export async function markIdleStationsOffline(
+  idleSeconds: number,
+  emit?: RealtimeEmitFn
+): Promise<void> {
+  const supabase = getSupabase();
+  const cutoff = new Date(Date.now() - idleSeconds * 1000).toISOString();
+  const { data: rows, error } = await supabase
+    .from("stations")
+    .select("id, charge_point_id, status")
+    .eq("status", "online")
+    .lt("last_seen", cutoff);
+
+  if (error) {
+    console.error("[stationService] markIdleStationsOffline:", error);
+    return;
+  }
+
+  for (const row of rows ?? []) {
+    const id = row.id as number;
+    const cpId = String(row.charge_point_id ?? "");
+    const { error: upErr } = await supabase.from("stations").update({ status: "offline" }).eq("id", id);
+    if (!upErr) {
+      await setAllConnectorsStatus(id, "unavailable");
+      emit?.("charger_status_changed", {
+        id: String(id),
+        chargePointId: cpId,
+        status: "offline",
+        reason: "idle_timeout",
+      });
+    }
+  }
 }
 
 /** Atualiza apenas last_seen (Heartbeat) */
@@ -115,21 +209,6 @@ export async function updateStationLastSeen(chargePointId: string): Promise<bool
   const { error } = await supabase
     .from("stations")
     .update({ last_seen: new Date().toISOString() })
-    .eq("charge_point_id", chargePointId);
-
-  return !error;
-}
-
-/** Atualiza status (StatusNotification) */
-export async function updateStationStatus(
-  chargePointId: string,
-  status: string
-): Promise<boolean> {
-  const normalized = VALID_STATUSES.includes(status as StationStatus) ? status : "offline";
-  const supabase = getSupabase();
-  const { error } = await supabase
-    .from("stations")
-    .update({ status: normalized, last_seen: new Date().toISOString() })
     .eq("charge_point_id", chargePointId);
 
   return !error;
@@ -324,6 +403,9 @@ export async function createStation(input: CreateStationInput): Promise<StationR
     charge_point_vendor: input.charge_point_vendor?.trim() || null,
     charge_point_model: input.charge_point_model?.trim() || null,
     status: "offline",
+    connection_type: input.connection_type === "ws" ? "ws" : "wss",
+    ocpp_host: input.ocpp_host?.trim() || null,
+    ocpp_port: input.ocpp_port != null && input.ocpp_port > 0 ? input.ocpp_port : null,
   };
   if (input.connector_count != null && input.connector_count > 0) {
     insert.connector_count = input.connector_count;

@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Zap, Clock, DollarSign } from "lucide-react";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 import type { StationTransaction } from "./types";
 
 function fmtMoney(n: number): string {
@@ -24,22 +25,29 @@ function formatDuration(minutes: number): string {
 interface StationTransactionsProps {
   transactions: StationTransaction[];
   isLoading?: boolean;
+  className?: string;
 }
 
 export default function StationTransactions({
   transactions,
   isLoading,
+  className,
 }: StationTransactionsProps) {
   return (
-    <Card className="flex h-full min-h-0 flex-col transition-colors hover:border-muted-foreground/20">
+    <Card
+      className={cn(
+        "flex h-full min-h-0 flex-col transition-colors hover:border-muted-foreground/20",
+        className,
+      )}
+    >
       <CardHeader className="shrink-0 py-4">
         <h3 className="text-sm font-semibold">Transações</h3>
         <p className="text-xs text-muted-foreground">
           Últimas sessões de carregamento
         </p>
       </CardHeader>
-      <CardContent className="min-h-0 flex-1 pt-0">
-        <ScrollArea className="h-[300px] pr-3">
+      <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-6 pt-0">
+        <ScrollArea className="h-full min-h-0 flex-1 pr-3">
           {isLoading ? (
             <div className="space-y-3 py-2">
               {[1, 2, 3, 4].map((i) => (

@@ -1,16 +1,9 @@
 import { getSupabase } from "../database/supabaseClient";
 
-const VALID_CONNECTOR_STATUSES = [
-  "available",
-  "charging",
-  "offline",
-  "online",
-  "faulted",
-  "unavailable",
-  "reserved",
-  "preparing",
-  "finishing",
-] as const;
+/** Estados da boca (OCPP agregado): livre | carregando | indisponível | falha */
+const VALID_CONNECTOR_STATUSES = ["available", "charging", "unavailable", "error"] as const;
+
+export type ConnectorOperationalStatus = (typeof VALID_CONNECTOR_STATUSES)[number];
 
 export interface ConnectorRow {
   id: string;
@@ -118,7 +111,7 @@ export async function updateConnectorStatus(
   status: string
 ): Promise<boolean> {
   await ensureConnectorExists(stationId, connectorId);
-  const normalized = VALID_CONNECTOR_STATUSES.includes(status as (typeof VALID_CONNECTOR_STATUSES)[number])
+  const normalized = VALID_CONNECTOR_STATUSES.includes(status as ConnectorOperationalStatus)
     ? status
     : "available";
   const supabase = getSupabase();
@@ -170,6 +163,24 @@ export async function updateConnectorEnergy(
     })
     .eq("station_id", stationId)
     .eq("connector_id", connectorId);
+
+  return !error;
+}
+
+/** Quando a estação fica offline ou em erro: alinhar todas as bocas (regra de negócio) */
+export async function setAllConnectorsStatus(
+  stationId: number,
+  status: ConnectorOperationalStatus
+): Promise<boolean> {
+  if (!VALID_CONNECTOR_STATUSES.includes(status)) return false;
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("connectors")
+    .update({
+      status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("station_id", stationId);
 
   return !error;
 }

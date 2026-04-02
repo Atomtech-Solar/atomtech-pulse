@@ -69,10 +69,10 @@ export default function StationStats({
   totalRevenue,
 }: StationStatsProps) {
   const statusLabel =
-    status === "online" || status === "charging"
+    status === "online"
       ? "Online"
-      : status === "faulted" || status === "unavailable"
-        ? "Atenção"
+      : status === "error"
+        ? "Erro"
         : "Offline";
 
   return (

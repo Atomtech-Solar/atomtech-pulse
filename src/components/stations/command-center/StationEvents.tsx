@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CircleCheck, CircleX, Zap, Radio } from "lucide-react";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 import type { StationEvent } from "./types";
 
 function formatEventTime(iso: string): string {
@@ -43,19 +44,25 @@ function EventIcon({ event }: { event: StationEvent }) {
 interface StationEventsProps {
   events: StationEvent[];
   isLoading?: boolean;
+  className?: string;
 }
 
-export default function StationEvents({ events, isLoading }: StationEventsProps) {
+export default function StationEvents({ events, isLoading, className }: StationEventsProps) {
   return (
-    <Card className="flex h-full min-h-0 flex-col transition-colors hover:border-muted-foreground/20">
+    <Card
+      className={cn(
+        "flex h-full min-h-0 flex-col transition-colors hover:border-muted-foreground/20",
+        className,
+      )}
+    >
       <CardHeader className="shrink-0 py-4">
         <h3 className="text-sm font-semibold">Eventos</h3>
         <p className="text-xs text-muted-foreground">
           Timeline operacional • Tempo real
         </p>
       </CardHeader>
-      <CardContent className="min-h-0 flex-1 pt-0">
-        <ScrollArea className="h-[260px] pr-3">
+      <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-6 pt-0">
+        <ScrollArea className="h-full min-h-0 flex-1 pr-3">
           {isLoading ? (
             <div className="space-y-4 py-2">
               {[1, 2, 3, 4, 5].map((i) => (

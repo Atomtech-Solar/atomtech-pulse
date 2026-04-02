@@ -9,21 +9,8 @@ import {
   PowerOff,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { statusLabels } from "./stationConstants";
+import { stationStatusLabels, stationStatusColors } from "./stationConstants";
 import type { StationDetails } from "@/services/stationsService";
-
-const STATUS_BADGE_CLASSES: Record<string, string> = {
-  online:
-    "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40",
-  charging:
-    "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40",
-  offline:
-    "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/40",
-  faulted:
-    "bg-destructive/20 text-destructive border-destructive/35",
-  unavailable:
-    "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border-zinc-500/40",
-};
 
 interface StationSpecHeaderProps {
   station: StationDetails;
@@ -39,7 +26,7 @@ export default function StationSpecHeader({
   const navigate = useNavigate();
   const statusKey = station.status.toLowerCase();
   const badgeClass =
-    STATUS_BADGE_CLASSES[statusKey] ?? STATUS_BADGE_CLASSES.offline;
+    stationStatusColors[statusKey] ?? stationStatusColors.offline;
   const hasCoords = station.lat != null && station.lng != null;
 
   const handleViewMap = () => {
@@ -75,7 +62,7 @@ export default function StationSpecHeader({
               variant="outline"
               className={`shrink-0 font-medium ${badgeClass}`}
             >
-              {statusLabels[statusKey] ?? station.status}
+              {stationStatusLabels[statusKey] ?? station.status}
             </Badge>
           </div>
           <p className="mt-1 font-mono text-sm text-muted-foreground">

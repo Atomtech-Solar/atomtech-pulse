@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,6 +9,7 @@ import {
   stripUrlPrefixes,
   sanitizeChargePointId,
 } from "@/lib/chargePointIdUtils";
+import { getOcppEndpoint } from "@/lib/getOcppEndpoint";
 import { formatCep, parseCep } from "@/lib/formatCep";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,24 +44,24 @@ import { Switch } from "@/components/ui/switch";
 import { Zap, Plus, Info } from "lucide-react";
 import type { Station } from "@/types/station";
 
-const statusColors: Record<string, string> = {
-  offline: "bg-muted text-muted-foreground border-muted",
-  online:
-    "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
-  charging:
-    "bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30",
-  faulted: "bg-destructive/20 text-destructive border-destructive/30",
-  unavailable:
-    "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border-zinc-500/30",
-};
+import {
+  stationStatusColors,
+  stationStatusLabels,
+  connectorStatusColors,
+  connectorStatusLabels,
+} from "@/components/stations/stationConstants";
 
-const statusLabels: Record<string, string> = {
-  offline: "Offline",
-  online: "Online",
-  charging: "Carregando",
-  faulted: "Falha",
-  unavailable: "Indisponível",
-};
+function connectorBadgeClass(status: string): string {
+  const k = status.toLowerCase();
+  return (
+    connectorStatusColors[k] ?? "bg-muted text-muted-foreground border-border"
+  );
+}
+
+function connectorLabel(status: string): string {
+  const k = status.toLowerCase();
+  return connectorStatusLabels[k] ?? status;
+}
 
 function formatLastSeen(value: string | null): string {
   if (!value) return "—";
@@ -97,6 +98,9 @@ export default function StationsPage() {
   const [vendor, setVendor] = useState("");
   const [model, setModel] = useState("");
   const [connectorCount, setConnectorCount] = useState<string>("");
+  const [connectionType, setConnectionType] = useState<"ws" | "wss">("wss");
+  const [ocppHost, setOcppHost] = useState("");
+  const [ocppPort, setOcppPort] = useState("");
   const [formCompanyId, setFormCompanyId] = useState<number | null>(null);
 
   // Geral (1/4)
@@ -134,6 +138,17 @@ export default function StationsPage() {
   const [mainPhotoFile, setMainPhotoFile] = useState<File | null>(null);
   const [extraPhotoFiles, setExtraPhotoFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(false);
+
+  const ocppPreviewUrl = useMemo(() => {
+    const s = sanitizeChargePointId(chargePointId);
+    if (!s.valid) return null;
+    return getOcppEndpoint({
+      charge_point_id: s.id,
+      connection_type: connectionType,
+      ocpp_host: ocppHost.trim() || null,
+      ocpp_port: ocppPort.trim() ? parseInt(ocppPort, 10) : null,
+    });
+  }, [chargePointId, connectionType, ocppHost, ocppPort]);
 
   const { data: companies = [] } = useCompanies();
   const companyId =
@@ -185,10 +200,12 @@ export default function StationsPage() {
         (payload) => {
           const row = payload.new as Record<string, unknown>;
           const statusStr = String(row.status || "").toLowerCase();
-          const validStatuses = ["offline", "online", "charging", "faulted", "unavailable"] as const;
+          const validStatuses = ["offline", "online", "error"] as const;
           const status = validStatuses.includes(statusStr as (typeof validStatuses)[number])
             ? (statusStr as (typeof validStatuses)[number])
             : "offline";
+          const ct = row.connection_type;
+          const connection_type = ct === "ws" || ct === "wss" ? ct : "wss";
           const station = {
             id: String(row.id),
             name: String(row.name || ""),
@@ -196,6 +213,10 @@ export default function StationsPage() {
             company_id: String(row.company_id ?? ""),
             status,
             last_seen: row.last_seen ? String(row.last_seen) : null,
+            last_error: row.last_error != null ? String(row.last_error) : null,
+            connection_type,
+            ocpp_host: row.ocpp_host != null ? String(row.ocpp_host) : null,
+            ocpp_port: row.ocpp_port != null ? Number(row.ocpp_port) : null,
             charge_point_vendor: row.charge_point_vendor ? String(row.charge_point_vendor) : null,
             charge_point_model: row.charge_point_model ? String(row.charge_point_model) : null,
             total_kwh: Number(row.total_kwh) ?? 0,
@@ -351,6 +372,9 @@ export default function StationsPage() {
         revenue_per_kwh: revenueEnabled && revenueChargeType === "estação" && revenuePerKwh.trim() ? Number(revenuePerKwh.replace(",", ".")) : null,
         main_photo_url: mainPhotoUrl,
         photo_urls: photoUrls.length > 0 ? photoUrls : null,
+        connection_type: connectionType,
+        ocpp_host: ocppHost.trim() || null,
+        ocpp_port: ocppPort.trim() ? parseInt(ocppPort, 10) : null,
       };
       console.log("[Stations] Enviando payload:", payload);
 
@@ -399,6 +423,9 @@ export default function StationsPage() {
       setRevenuePerKwh("");
       setMainPhotoFile(null);
       setExtraPhotoFiles([]);
+      setConnectionType("wss");
+      setOcppHost("");
+      setOcppPort("");
       void queryClient.invalidateQueries({ queryKey: ["stations-module"] });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro inesperado.";
@@ -456,6 +483,9 @@ export default function StationsPage() {
                 setRevenuePerKwh("");
                 setMainPhotoFile(null);
                 setExtraPhotoFiles([]);
+                setConnectionType("wss");
+                setOcppHost("");
+                setOcppPort("");
               }
             }}
           >
@@ -481,9 +511,10 @@ export default function StationsPage() {
                   <div className="rounded-lg border border-muted bg-muted/30 p-3 flex gap-2">
                     <Info className="w-5 h-5 shrink-0 text-muted-foreground mt-0.5" />
                     <div className="text-sm text-muted-foreground">
-                      O Charge Point ID deve ser exatamente o mesmo configurado no carregador físico OCPP.
-                      Ex.: <code className="font-mono bg-muted px-1 rounded">CP001</code> →{" "}
-                      <code className="font-mono bg-muted px-1 rounded text-xs">wss://backend/ocpp/CP001</code>.
+                      O Charge Point ID deve ser o mesmo configurado no carregador OCPP 1.6. Use{" "}
+                      <strong className="text-foreground">WSS (domínio)</strong> em produção com TLS ou{" "}
+                      <strong className="text-foreground">WS (IP)</strong> em rede local. A URL de conexão é
+                      gerada com base no tipo e no host (veja abaixo).
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -537,6 +568,57 @@ export default function StationsPage() {
                       <p className="text-sm text-destructive">{chargePointIdError}</p>
                     )}
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="connection-type">Tipo de conexão OCPP</Label>
+                    <Select
+                      value={connectionType}
+                      onValueChange={(v) => setConnectionType(v as "ws" | "wss")}
+                    >
+                      <SelectTrigger id="connection-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="wss">WSS (domínio / TLS)</SelectItem>
+                        <SelectItem value="ws">WS (IP / rede local)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {connectionType === "wss"
+                        ? "Informe o domínio onde o backend OCPP está exposto (ex.: ocpp.seudominio.com). Porta padrão 443."
+                        : "Informe IP ou hostname do servidor (ex.: 192.168.0.10). Porta padrão 8080 se não preenchida."}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="ocpp-host">
+                        {connectionType === "wss" ? "Domínio OCPP" : "Host / IP OCPP"}
+                      </Label>
+                      <Input
+                        id="ocpp-host"
+                        value={ocppHost}
+                        onChange={(e) => setOcppHost(e.target.value)}
+                        placeholder={connectionType === "wss" ? "ocpp.seudominio.com" : "192.168.0.10"}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ocpp-port">Porta (opcional)</Label>
+                      <Input
+                        id="ocpp-port"
+                        type="number"
+                        min={1}
+                        max={65535}
+                        value={ocppPort}
+                        onChange={(e) => setOcppPort(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                        placeholder={connectionType === "wss" ? "443 (padrão)" : "8080"}
+                      />
+                    </div>
+                  </div>
+                  {ocppPreviewUrl && (
+                    <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-2">
+                      <p className="text-xs text-muted-foreground mb-1">URL de conexão (prévia)</p>
+                      <code className="text-xs sm:text-sm font-mono break-all">{ocppPreviewUrl}</code>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="station-website">Endereço web</Label>
@@ -939,16 +1021,29 @@ export default function StationsPage() {
                       {station.charge_point_vendor || "—"} / {station.charge_point_model || "—"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={statusColors[station.status] ?? statusColors.offline}
-                    >
-                      {statusLabels[station.status] ?? station.status}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {formatLastSeen(station.last_seen)}
-                    </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={
+                          stationStatusColors[station.status] ??
+                          stationStatusColors.offline
+                        }
+                      >
+                        {stationStatusLabels[station.status] ?? station.status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {formatLastSeen(station.last_seen)}
+                      </span>
+                    </div>
+                    {station.status === "error" && station.last_error && (
+                      <p
+                        className="text-xs text-amber-700 dark:text-amber-400/95 max-w-[min(100%,20rem)] text-right line-clamp-2"
+                        title={station.last_error}
+                      >
+                        {station.last_error}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -963,15 +1058,9 @@ export default function StationsPage() {
                         </span>
                         <Badge
                           variant="outline"
-                          className={
-                            conn.status === "charging"
-                              ? statusColors.charging
-                              : conn.status === "available"
-                                ? "bg-emerald-500/20 text-emerald-600 border-emerald-500/30"
-                                : "bg-muted text-muted-foreground"
-                          }
+                          className={connectorBadgeClass(conn.status)}
                         >
-                          {conn.status}
+                          {connectorLabel(conn.status)}
                         </Badge>
                       </div>
                       <div className="mt-2 text-xs text-muted-foreground space-y-1">

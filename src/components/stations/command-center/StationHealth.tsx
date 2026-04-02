@@ -39,16 +39,15 @@ const HEALTH_CONFIG: Record<HealthLevel, HealthConfig> = {
     label: "Erro",
     emoji: "⚠️",
     className: "bg-destructive/15 text-destructive border-destructive/40",
-    tooltip: "Estação em falha (faulted). Requer intervenção técnica.",
+    tooltip: "Falha de conexão ou protocolo no charge point. Verifique o equipamento.",
   },
 };
 
 function getHealthLevel(status: string, lastSeen: string | null): HealthLevel {
   const s = status.toLowerCase();
-  if (s === "faulted") return "error";
-  if (s === "unavailable") return "unstable";
+  if (s === "error") return "error";
   if (s === "offline") return "offline";
-  if (s === "online" || s === "charging") {
+  if (s === "online") {
     if (!lastSeen) return "unstable";
     const diffMs = Date.now() - new Date(lastSeen).getTime();
     const diffMin = diffMs / (1000 * 60);

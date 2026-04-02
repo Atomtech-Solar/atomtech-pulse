@@ -23,6 +23,14 @@ export default function SettingsTab({ station }: SettingsTabProps) {
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <DetailRow label="Charge Point ID" value={station.charge_point_id} />
+          <DetailRow
+            label="Tipo de conexão OCPP"
+            value={
+              station.connection_type === "wss"
+                ? "WSS (TLS / domínio)"
+                : "WS (IP / rede local)"
+            }
+          />
           <DetailRow label="ID Externo" value={station.external_id} />
           <DetailRow label="Descrição" value={station.description} />
           <DetailRow label="Grupo" value={station.station_group} />

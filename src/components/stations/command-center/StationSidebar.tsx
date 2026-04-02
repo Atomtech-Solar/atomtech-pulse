@@ -1,17 +1,16 @@
+import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Pencil, Power, PowerOff, Trash2 } from "lucide-react";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { motion } from "framer-motion";
 
@@ -47,6 +46,7 @@ function formatAddress(station: {
 interface StationSidebarProps {
   station: {
     charge_point_id: string;
+    connection_type: "ws" | "wss";
     external_id: string | null;
     station_type: string | null;
     station_group: string | null;
@@ -67,7 +67,13 @@ interface StationSidebarProps {
   };
   onEdit: () => void;
   onToggleEnabled: () => void;
-  onDelete: () => void;
+  /** Deve concluir a exclusão (ex.: mutateAsync); em erro o diálogo permanece aberto */
+  onDelete: () => void | Promise<void>;
+  /** Nome da estação (textos de confirmação) */
+  stationName: string;
+  /** Apenas super_admin e company_admin (regra do produto) */
+  canDelete?: boolean;
+  deletePending?: boolean;
 }
 
 export default function StationSidebar({
@@ -75,9 +81,25 @@ export default function StationSidebar({
   onEdit,
   onToggleEnabled,
   onDelete,
+  stationName,
+  canDelete = true,
+  deletePending = false,
 }: StationSidebarProps) {
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
+
   const qrValue = `station:${station.charge_point_id}`;
   const hasCoords = station.lat != null && station.lng != null;
+
+  const closeDeleteDialog = () => {
+    setDeleteOpen(false);
+    setDeleteStep(1);
+  };
+
+  const handleDeleteOpenChange = (open: boolean) => {
+    setDeleteOpen(open);
+    if (!open) setDeleteStep(1);
+  };
 
   const handleViewMap = () => {
     if (hasCoords) {
@@ -154,6 +176,14 @@ export default function StationSidebar({
             </h4>
           </CardHeader>
           <CardContent className="space-y-0 pt-0">
+            <DetailRow
+              label="Tipo de conexão OCPP"
+              value={
+                station.connection_type === "wss"
+                  ? "WSS (TLS / domínio)"
+                  : "WS (IP / rede local)"
+              }
+            />
             <DetailRow label="Tipo" value={station.station_type} />
             <DetailRow label="Grupo" value={station.station_group} />
             <DetailRow label="Habilitada" value={station.enabled ? "Sim" : "Não"} />
@@ -219,34 +249,93 @@ export default function StationSidebar({
             </>
           )}
         </Button>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
+        {canDelete && (
+          <>
             <Button
+              type="button"
               variant="outline"
               className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => {
+                setDeleteStep(1);
+                setDeleteOpen(true);
+              }}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Deletar
             </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Deletar estação?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta ação não pode ser desfeita. Todos os dados da estação serão removidos.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={onDelete}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                Deletar
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+
+            <AlertDialog open={deleteOpen} onOpenChange={handleDeleteOpenChange}>
+              <AlertDialogContent className="sm:max-w-md">
+                {deleteStep === 1 ? (
+                  <>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Excluir estação?</AlertDialogTitle>
+                      <AlertDialogDescription className="text-left">
+                        Deseja excluir a estação{" "}
+                        <span className="font-semibold text-foreground">«{stationName}»</span>?
+                        Conectores, transações e demais dados vinculados a este ponto serão
+                        removidos permanentemente.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+                      <AlertDialogCancel type="button" className="mt-0">
+                        Cancelar
+                      </AlertDialogCancel>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setDeleteStep(2)}
+                      >
+                        Sim, quero continuar
+                      </Button>
+                    </AlertDialogFooter>
+                  </>
+                ) : (
+                  <>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirmação final</AlertDialogTitle>
+                      <AlertDialogDescription className="text-left">
+                        Tem certeza absoluta? A estação{" "}
+                        <span className="font-semibold text-foreground">«{stationName}»</span> será
+                        apagada e não poderá ser recuperada.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="sm:mr-auto"
+                        onClick={() => setDeleteStep(1)}
+                      >
+                        Voltar
+                      </Button>
+                      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                        <AlertDialogCancel type="button" className="mt-0">
+                          Cancelar
+                        </AlertDialogCancel>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          disabled={deletePending}
+                          onClick={async () => {
+                            try {
+                              await Promise.resolve(onDelete());
+                              closeDeleteDialog();
+                            } catch {
+                              /* toast no pai */
+                            }
+                          }}
+                        >
+                          {deletePending ? "Excluindo…" : "Excluir definitivamente"}
+                        </Button>
+                      </div>
+                    </AlertDialogFooter>
+                  </>
+                )}
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        )}
       </div>
       </Block>
     </aside>

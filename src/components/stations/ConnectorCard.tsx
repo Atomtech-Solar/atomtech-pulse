@@ -1,7 +1,11 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plug, Zap } from "lucide-react";
-import { statusColors, formatDateTime } from "./stationConstants";
+import {
+  connectorStatusColors,
+  connectorStatusLabels,
+  formatDateTime,
+} from "./stationConstants";
 
 interface ConnectorCardProps {
   connectorId: number;
@@ -12,14 +16,6 @@ interface ConnectorCardProps {
   lastActivity?: string | null;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  charging: "Carregando",
-  available: "Disponível",
-  unavailable: "Indisponível",
-  faulted: "Falha",
-  offline: "Offline",
-};
-
 export default function ConnectorCard({
   connectorId,
   status,
@@ -28,12 +24,9 @@ export default function ConnectorCard({
   hasActiveSession,
   lastActivity,
 }: ConnectorCardProps) {
+  const k = status.toLowerCase();
   const badgeClass =
-    status === "charging"
-      ? statusColors.charging
-      : status === "available"
-        ? statusColors.available
-        : statusColors[status] ?? "bg-muted";
+    connectorStatusColors[k] ?? "bg-muted text-muted-foreground border-border";
 
   return (
     <Card className="transition-colors hover:border-muted-foreground/20">
@@ -51,7 +44,7 @@ export default function ConnectorCard({
             </div>
           </div>
           <Badge variant="outline" className={`shrink-0 ${badgeClass}`}>
-            {STATUS_LABELS[status] ?? status}
+            {connectorStatusLabels[k] ?? status}
           </Badge>
         </div>
         <div className="mt-4 flex items-center justify-between border-t pt-4 text-sm">

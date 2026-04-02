@@ -6,6 +6,7 @@ import {
   getStationDetails,
   getStationConsumptionByDay,
   updateStationEnabled,
+  deleteStation,
 } from "@/services/stationsService";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,8 @@ export default function StationDetailsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, isSessionReady } = useAuth();
+  const canDeleteStation =
+    user?.role === "super_admin" || user?.role === "company_admin";
 
   const { data: station, isLoading, error } = useQuery({
     queryKey: ["station-details", stationId],
@@ -54,6 +57,19 @@ export default function StationDetailsPage() {
     queryKey: ["station-consumption", stationId],
     queryFn: () => getStationConsumptionByDay(stationId!),
     enabled: !!stationId && !!station,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteStation(stationId!),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["stations-module"] });
+      void queryClient.invalidateQueries({ queryKey: ["stations"] });
+      toast.success("Estação excluída com sucesso.");
+      navigate("/dashboard/stations");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message ?? "Não foi possível excluir a estação.");
+    },
   });
 
   const toggleMutation = useMutation({
@@ -146,9 +162,6 @@ export default function StationDetailsPage() {
   const handleToggleEnabled = () => {
     if (!stationId || !station) return;
     toggleMutation.mutate({ id: stationId, enabled: !station.enabled });
-  };
-  const handleDelete = () => {
-    toast.error("Exclusão de estação em desenvolvimento.");
   };
 
   if (!stationId) {
@@ -246,11 +259,12 @@ export default function StationDetailsPage() {
         <StationPhotoGallery photoUrls={station.photo_urls} />
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.8fr)_minmax(0,1.2fr)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.8fr)_minmax(0,1.2fr)] lg:items-stretch">
         <div className="lg:min-w-0">
           <StationSidebar
             station={{
               charge_point_id: station.charge_point_id,
+              connection_type: station.connection_type,
               external_id: station.external_id,
               station_type: station.station_type,
               station_group: station.station_group,
@@ -271,13 +285,16 @@ export default function StationDetailsPage() {
             }}
             onEdit={handleEdit}
             onToggleEnabled={handleToggleEnabled}
-            onDelete={handleDelete}
+            onDelete={() => deleteMutation.mutateAsync()}
+            stationName={station.name}
+            canDelete={canDeleteStation}
+            deletePending={deleteMutation.isPending}
           />
         </div>
 
-        <div className="flex min-w-0 flex-col gap-4">
-          <StationEvents events={events} />
-          <StationTransactions transactions={transactions} />
+        <div className="flex min-h-0 min-w-0 flex-col gap-4 lg:min-h-[min(720px,78vh)]">
+          <StationEvents className="min-h-0 flex-1" events={events} />
+          <StationTransactions className="min-h-0 flex-1" transactions={transactions} />
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">

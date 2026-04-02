@@ -1,10 +1,17 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Zap } from "lucide-react";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+import {
+  connectorStatusColors,
+  connectorStatusLabels,
+} from "@/components/stations/stationConstants";
 
 interface ConnectorInfo {
   connector_id: number;
   status: string;
+  energy_kwh?: number;
 }
 
 interface StationConnectorsProps {
@@ -12,14 +19,15 @@ interface StationConnectorsProps {
   connectors: ConnectorInfo[];
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  available: "text-emerald-500",
-  charging: "text-blue-500",
-  online: "text-emerald-500",
-  offline: "text-muted-foreground",
-  faulted: "text-destructive",
-  unavailable: "text-zinc-400",
-};
+function normalizeConnectorBadge(status: string): string {
+  const k = status.toLowerCase();
+  return connectorStatusColors[k] ?? "bg-muted/80 text-foreground border-border";
+}
+
+function connectorLabel(status: string): string {
+  const k = status.toLowerCase();
+  return connectorStatusLabels[k] ?? status;
+}
 
 export default function StationConnectors({
   connectorCount,
@@ -31,11 +39,13 @@ export default function StationConnectors({
     return null;
   }
 
-  const items = connectors.length > 0
+  const hasRows = connectors.length > 0;
+  const items: ConnectorInfo[] = hasRows
     ? connectors
     : Array.from({ length: count }, (_, i) => ({
         connector_id: i + 1,
-        status: "unknown" as string,
+        status: "unknown",
+        energy_kwh: undefined,
       }));
 
   return (
@@ -47,29 +57,49 @@ export default function StationConnectors({
       <Card className="transition-colors hover:border-muted-foreground/20">
         <CardHeader className="pb-2">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Conectores
+            Conectores (bocas)
           </h4>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2 pt-0">
+        <CardContent className="grid gap-3 pt-0 sm:grid-cols-2">
           {items.map((c, i) => {
-            const colorClass =
-              connectors.length > 0
-                ? STATUS_COLORS[c.status] ?? "text-muted-foreground"
-                : "text-muted-foreground";
+            const energy =
+              c.energy_kwh != null && !Number.isNaN(Number(c.energy_kwh))
+                ? Number(c.energy_kwh)
+                : null;
+            const label = connectorLabel(hasRows ? c.status : "unknown");
             return (
               <motion.div
                 key={c.connector_id}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.3 + i * 0.05 }}
-                className="flex items-center justify-center rounded-lg border bg-muted/30 p-2"
-                title={
-                  connectors.length > 0
-                    ? `Connector ${c.connector_id} • ${c.status}`
-                    : `Connector ${c.connector_id}`
-                }
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.28 + i * 0.04 }}
+                className="flex flex-col rounded-lg border border-border bg-card px-3 py-3 shadow-sm"
               >
-                <Zap className={`h-5 w-5 ${colorClass}`} />
+                <p className="text-sm font-semibold leading-tight">
+                  Boca {c.connector_id}
+                </p>
+                <div className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Zap className="h-4 w-4 shrink-0 text-primary/80" />
+                  <span>
+                    {energy != null && energy > 0
+                      ? `${energy.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 2,
+                        })} kWh`
+                      : hasRows
+                        ? "0 kWh"
+                        : "—"}
+                  </span>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "mt-2 w-fit text-xs font-medium",
+                    hasRows ? normalizeConnectorBadge(c.status) : "bg-muted/80 text-foreground border-border",
+                  )}
+                >
+                  {hasRows ? label : "Aguardando dados"}
+                </Badge>
               </motion.div>
             );
           })}

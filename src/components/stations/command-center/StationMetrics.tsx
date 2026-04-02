@@ -47,7 +47,7 @@ export default function StationMetrics({
   };
 
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
+    <div className="flex w-full flex-col gap-3">
       {metrics.map((m, i) => (
         <motion.div
           key={m.key}

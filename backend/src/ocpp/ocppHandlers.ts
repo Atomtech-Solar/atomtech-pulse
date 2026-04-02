@@ -3,13 +3,19 @@ import {
   findStationByChargePointId,
   updateStationBootInfo,
   updateStationLastSeen,
-  updateStationStatus,
-  incrementStationSessions,
+  updateStationError,
 } from "../services/stationService";
+import { touchPresence } from "./chargerPresence";
 import {
   createTransaction,
   stopTransaction,
   updateTransactionEnergy,
+  promotePendingToCharging,
+  closeOpenTransactionFromExternalStatus,
+  getOpenTransactionForConnector,
+  getTransactionMeterSnapshot,
+  setTransactionPaused,
+  resumeTransactionFromPaused,
 } from "../services/transactionService";
 import {
   ensureConnectorsForStation,
@@ -17,6 +23,12 @@ import {
   updateConnectorStatus,
   setConnectorTransaction,
 } from "../services/connectorService";
+import {
+  parseMeterValuesPayload,
+  hasSignificantChargingFlow,
+  shouldPromoteFromEnergyRegister,
+} from "./meterSample";
+import { touchSessionIdleState } from "./sessionIdleMonitor";
 
 interface OcppMessage {
   messageTypeId: number;
@@ -81,6 +93,17 @@ export function handleOcppMessage(chargePointId: string, ws: WebSocket, data: Bu
       sendCallError(ws, uniqueId, "FormationViolation", "Mensagem JSON inválida ou formato incorreto");
     }
     console.error(`[OCPP] Erro de protocolo (${chargePointId}): mensagem JSON inválida`);
+    void findStationByChargePointId(chargePointId).then(async (s) => {
+      if (!s) return;
+      const errMsg = "Mensagem OCPP inválida ou JSON malformado";
+      await updateStationError(chargePointId, errMsg);
+      realtimeEmitter("charger_status_changed", {
+        id: String(s.id),
+        chargePointId,
+        status: "error",
+        last_error: errMsg,
+      });
+    });
     return;
   }
   if (msg.messageTypeId !== 2) {
@@ -89,16 +112,40 @@ export function handleOcppMessage(chargePointId: string, ws: WebSocket, data: Bu
       sendCallError(ws, uniqueId, "FormationViolation", `Tipo de mensagem inválido: ${msg.messageTypeId} (esperado 2=CALL)`);
     }
     console.warn(`[OCPP] Mensagem ignorada (${chargePointId}): tipo ${msg.messageTypeId}`);
+    void findStationByChargePointId(chargePointId).then(async (s) => {
+      if (!s) return;
+      const errMsg = `Tipo de mensagem OCPP inválido: ${msg.messageTypeId}`;
+      await updateStationError(chargePointId, errMsg);
+      realtimeEmitter("charger_status_changed", {
+        id: String(s.id),
+        chargePointId,
+        status: "error",
+        last_error: errMsg,
+      });
+    });
     return;
   }
+
+  touchPresence(chargePointId);
 
   const { uniqueId, action, payload } = msg;
   console.log(`[OCPP] Mensagem recebida: ${chargePointId} → ${action}`);
 
   /** Encapsula handler async para capturar erros (ex: Supabase) e enviar InternalError em vez de derrubar */
   const run = (fn: () => Promise<void>) => {
-    fn().catch((err) => {
+    fn().catch(async (err) => {
       console.error(`[OCPP] Erro em ${action} (${chargePointId}):`, err);
+      const s = await findStationByChargePointId(chargePointId);
+      if (s) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        await updateStationError(chargePointId, `Handler ${action}: ${errMsg}`);
+        realtimeEmitter("charger_status_changed", {
+          id: String(s.id),
+          chargePointId,
+          status: "error",
+          last_error: errMsg,
+        });
+      }
       sendCallError(ws, uniqueId, "InternalError", "Erro interno do servidor");
     });
   };
@@ -156,11 +203,19 @@ async function handleBootNotification(
   const response = {
     status: "Accepted" as const,
     currentTime: new Date().toISOString(),
-    interval: 300,
+    /** Intervalo de Heartbeat OCPP (s); alinhado ao timeout de inatividade do backend */
+    interval: 60,
   };
 
   sendCallResult(ws, uniqueId, response);
   realtimeEmitter("charge_point_connected", { chargePointId, action: "BootNotification" });
+  if (station) {
+    realtimeEmitter("charger_status_changed", {
+      id: String(station.id),
+      chargePointId,
+      status: "online",
+    });
+  }
 }
 
 /** Valida idTag antes de iniciar transação (OCPP 1.6 Core). Aceita todos os ids por padrão. */
@@ -201,37 +256,38 @@ async function handleStatusNotification(
   const connectorId = p?.connectorId ?? 0;
   const status = p?.status ?? "Available";
 
-  const statusMap: Record<string, string> = {
+  /** Conector: available | charging | unavailable | error (não usar "online" na boca) */
+  const connectorStatusMap: Record<string, string> = {
     Available: "available",
-    Preparing: "preparing",
+    Preparing: "unavailable",
     Charging: "charging",
-    SuspendedEV: "charging",
-    SuspendedEVSE: "charging",
-    Finishing: "finishing",
-    Reserved: "reserved",
+    SuspendedEV: "unavailable",
+    SuspendedEVSE: "unavailable",
+    Finishing: "unavailable",
+    Reserved: "unavailable",
     Unavailable: "unavailable",
-    Faulted: "faulted",
+    Faulted: "error",
   };
-  const dbStatus = statusMap[status] ?? "available";
+  const dbStatus = connectorStatusMap[status] ?? "available";
 
   const station = await findStationByChargePointId(chargePointId);
   if (station) {
-    const stationStatusMap: Record<string, string> = {
-      Available: "online",
-      Preparing: "online",
-      Charging: "charging",
-      SuspendedEV: "charging",
-      SuspendedEVSE: "charging",
-      Finishing: "online",
-      Reserved: "online",
-      Unavailable: "unavailable",
-      Faulted: "faulted",
-    };
-    const stationStatus = stationStatusMap[status] ?? "offline";
-    await updateStationStatus(chargePointId, stationStatus);
+    await updateStationLastSeen(chargePointId);
     if (connectorId >= 1) {
       await ensureConnectorsUpTo(Number(station.id), connectorId);
       await updateConnectorStatus(Number(station.id), connectorId, dbStatus);
+
+      if (["Available", "Finishing", "SuspendedEV"].includes(status)) {
+        await closeOpenTransactionFromExternalStatus(chargePointId, Number(station.id), connectorId);
+      }
+      if (status === "Charging") {
+        const open = await getOpenTransactionForConnector(Number(station.id), connectorId);
+        if (open?.status === "pending") {
+          await promotePendingToCharging(open.ocpp_transaction_id, chargePointId);
+          touchSessionIdleState(open.ocpp_transaction_id, true, chargePointId);
+        }
+      }
+
       realtimeEmitter("connector_update", {
         chargePointId,
         stationId: station.id,
@@ -239,7 +295,7 @@ async function handleStatusNotification(
         status: dbStatus,
       });
     }
-    realtimeEmitter("status_notification", { chargePointId, status: stationStatus });
+    realtimeEmitter("status_notification", { chargePointId, ocppConnectorStatus: status, connectorStatus: dbStatus });
   } else {
     console.warn(`[OCPP] Estação não cadastrada: ${chargePointId}`);
   }
@@ -268,8 +324,8 @@ async function handleStartTransaction(
       ocppTransactionId
     );
     if (tx) {
-      await incrementStationSessions(chargePointId);
       await setConnectorTransaction(Number(station.id), connectorId, ocppTransactionId);
+      await updateConnectorStatus(Number(station.id), connectorId, "unavailable");
       realtimeEmitter("connector_update", {
         chargePointId,
         stationId: station.id,
@@ -288,7 +344,9 @@ async function handleStartTransaction(
 
   sendCallResult(ws, uniqueId, response);
   realtimeEmitter("start_transaction", { chargePointId, transactionId: ocppTransactionId });
-  console.log(`[OCPP] Sessão iniciada: ${chargePointId} | connector=${connectorId} | txId=${ocppTransactionId}`);
+  console.log(
+    `[OCPP] StartTransaction registrado (pending até fluxo real): ${chargePointId} | connector=${connectorId} | txId=${ocppTransactionId}`
+  );
 }
 
 async function handleStopTransaction(
@@ -314,8 +372,9 @@ async function handleStopTransaction(
         current_transaction_id: null,
         energy_kwh: energyKwh,
       });
+      const label = energyKwh <= 0 ? "cancelada (sem consumo real)" : "finalizada";
       console.log(
-        `[OCPP] Sessão finalizada: ${chargePointId} | txId=${ocppTransactionId} | energia=${energyKwh.toFixed(2)} kWh`
+        `[OCPP] StopTransaction ${label}: ${chargePointId} | txId=${ocppTransactionId} | energia=${energyKwh.toFixed(2)} kWh`
       );
     }
   }
@@ -339,23 +398,48 @@ async function handleMeterValues(
     await updateStationLastSeen(chargePointId);
   }
 
-  const p = payload as {
-    connectorId?: number;
-    transactionId?: number;
-    meterValue?: Array<{
-      sampledValue?: Array<{ value: string; measurand?: string }>;
-    }>;
-  } | undefined;
+  const sample = parseMeterValuesPayload(payload);
+  let ocppTransactionId = sample.transactionId;
 
-  const ocppTransactionId = p?.transactionId;
-  const meterValue = p?.meterValue?.[0];
-  const sampledValue = meterValue?.sampledValue?.find(
-    (s) => s.measurand === "Energy.Active.Import.Register"
-  );
+  const p = payload as { connectorId?: number } | undefined;
+  const connectorIdFromPayload =
+    p?.connectorId != null ? Number(p.connectorId) : sample.connectorId != null ? sample.connectorId : 0;
 
-  if (ocppTransactionId != null && sampledValue) {
-    const value = parseFloat(sampledValue.value) || 0;
-    const result = await updateTransactionEnergy(ocppTransactionId, value);
+  if (ocppTransactionId == null && station && connectorIdFromPayload >= 1) {
+    const open = await getOpenTransactionForConnector(Number(station.id), connectorIdFromPayload);
+    if (open) {
+      ocppTransactionId = open.ocpp_transaction_id;
+    }
+  }
+
+  if (ocppTransactionId == null) {
+    sendCallResult(ws, uniqueId, {});
+    return;
+  }
+
+  const snap = await getTransactionMeterSnapshot(ocppTransactionId);
+  if (!snap) {
+    sendCallResult(ws, uniqueId, {});
+    return;
+  }
+
+  const meterStartWh = snap.meter_start;
+  const energyWh = sample.energyWh;
+
+  const ongoingEnergyImport =
+    energyWh != null && energyWh >= meterStartWh + 1;
+
+  const flowSignificant =
+    hasSignificantChargingFlow(sample) ||
+    shouldPromoteFromEnergyRegister(meterStartWh, energyWh) ||
+    ongoingEnergyImport;
+
+  if (snap.status === "pending" && flowSignificant) {
+    await promotePendingToCharging(ocppTransactionId, chargePointId);
+  }
+
+  if (energyWh != null) {
+    const result = await updateTransactionEnergy(ocppTransactionId, energyWh);
     if (result && station) {
       realtimeEmitter("connector_update", {
         chargePointId,
@@ -363,6 +447,27 @@ async function handleMeterValues(
         connectorId: result.connectorId,
         energy_kwh: result.energyKwh,
       });
+    }
+  }
+
+  const after = await getTransactionMeterSnapshot(ocppTransactionId);
+  const currentStatus = after?.status ?? snap.status;
+
+  if (currentStatus === "charging" && !flowSignificant) {
+    await setTransactionPaused(ocppTransactionId);
+  } else if (currentStatus === "paused" && flowSignificant) {
+    await resumeTransactionFromPaused(ocppTransactionId);
+  }
+
+  touchSessionIdleState(ocppTransactionId, flowSignificant, chargePointId);
+
+  const sid = snap.station_id;
+  const cid = snap.connector_id;
+  if (sid >= 1 && cid >= 1) {
+    if (flowSignificant) {
+      await updateConnectorStatus(sid, cid, "charging");
+    } else if (currentStatus === "charging" || currentStatus === "paused") {
+      await updateConnectorStatus(sid, cid, "unavailable");
     }
   }
 
