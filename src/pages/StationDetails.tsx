@@ -292,7 +292,7 @@ export default function StationDetailsPage() {
           />
         </div>
 
-        <div className="flex min-h-0 min-w-0 flex-col gap-4 lg:min-h-[min(720px,78vh)]">
+        <div className="flex min-h-0 min-w-0 flex-col gap-4 lg:min-h-[min(720px,78dvh)]">
           <StationEvents className="min-h-0 flex-1" events={events} />
           <StationTransactions className="min-h-0 flex-1" transactions={transactions} />
         </div>

@@ -3,7 +3,7 @@ import { Zap, ArrowLeft } from "lucide-react";
 
 export default function PrivacyPolicy() {
   return (
-    <div className="min-h-screen bg-[#030712] text-white">
+    <div className="min-h-dvh bg-[#030712] text-white">
       <header className="border-b border-white/10 bg-[#0a0a0a]/60 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <Link

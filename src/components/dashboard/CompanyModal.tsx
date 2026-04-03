@@ -35,7 +35,7 @@ export function CompanyModal({
             Escolher empresa
           </DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-1 py-2 max-h-[60vh] overflow-y-auto">
+        <div className="flex flex-col gap-1 py-2 max-h-[60dvh] overflow-y-auto">
           <Button
             variant={selectedCompanyId === null ? "secondary" : "ghost"}
             className="w-full justify-start gap-2 h-10"

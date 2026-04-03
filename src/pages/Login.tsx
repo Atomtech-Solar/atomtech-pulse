@@ -71,7 +71,7 @@ export default function Login() {
 
   if (isAuthenticated && isBlocked) {
     return (
-      <div className="landing-auth relative min-h-screen w-full overflow-hidden bg-[#030712] text-white">
+      <div className="landing-auth relative min-h-dvh w-full overflow-hidden bg-[#030712] text-white">
         <LoginBackground />
         <Link
           to="/"
@@ -80,7 +80,7 @@ export default function Login() {
           <ArrowLeft className="h-4 w-4" />
           Voltar à landing
         </Link>
-        <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-16">
+        <div className="relative z-10 flex min-h-dvh items-center justify-center px-4 py-16">
           <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0a0a0a]/85 p-8 text-center shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_24px_64px_-12px_rgba(0,0,0,0.65)] backdrop-blur-xl">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/15 ring-1 ring-red-500/25">
               <AlertTriangle className="h-7 w-7 text-red-400" />
@@ -102,7 +102,7 @@ export default function Login() {
   }
 
   return (
-    <div className="landing-auth relative min-h-screen w-full overflow-hidden bg-[#030712] text-white">
+    <div className="landing-auth relative min-h-dvh w-full overflow-hidden bg-[#030712] text-white">
       <LoginBackground />
 
       {loading && (
@@ -122,7 +122,7 @@ export default function Login() {
         Voltar à landing
       </Link>
 
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-16 sm:py-20">
+      <div className="relative z-10 flex min-h-dvh items-center justify-center px-4 py-16 sm:py-20">
         <div className="animate-fade-in w-full max-w-[420px] px-1 sm:px-0">
           <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a]/80 p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_24px_64px_-12px_rgba(0,0,0,0.65)] backdrop-blur-xl sm:p-9">
             <div

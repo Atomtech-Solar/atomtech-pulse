@@ -81,7 +81,7 @@ export default function LandingPageAnalytics() {
 
   if (user?.role !== "super_admin") {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
+      <div className="flex min-h-[50dvh] items-center justify-center">
         <p className="text-muted-foreground">Acesso restrito ao Admin Supremo.</p>
       </div>
     );
@@ -89,7 +89,7 @@ export default function LandingPageAnalytics() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
+      <div className="flex min-h-[50dvh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           <p className="text-sm text-muted-foreground">Carregando analytics...</p>
@@ -100,7 +100,7 @@ export default function LandingPageAnalytics() {
 
   if (isError) {
     return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4">
+      <div className="flex min-h-[50dvh] flex-col items-center justify-center gap-4">
         <p className="text-center text-destructive">
           Erro ao carregar dados. Verifique as permissões no banco (RLS em profiles/companies) e tente novamente.
         </p>

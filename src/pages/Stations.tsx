@@ -495,7 +495,7 @@ export default function StationsPage() {
                 Adicionar Estação
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto max-w-2xl">
+            <DialogContent className="max-h-[90dvh] overflow-y-auto max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Adicionar Estação</DialogTitle>
               </DialogHeader>

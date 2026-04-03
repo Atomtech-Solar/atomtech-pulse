@@ -59,7 +59,7 @@ export function InvestForm({ disabled, extra, onExtraChange }: InvestFormProps) 
             </SelectTrigger>
             <SelectContent
               position="popper"
-              className="max-h-[min(280px,70vh)] border-white/10 bg-[#141414] text-white shadow-xl shadow-black/40"
+              className="max-h-[min(280px,70dvh)] border-white/10 bg-[#141414] text-white shadow-xl shadow-black/40"
             >
               {BR_UFS.map((uf) => (
                 <SelectItem

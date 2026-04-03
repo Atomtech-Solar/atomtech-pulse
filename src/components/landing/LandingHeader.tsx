@@ -101,7 +101,7 @@ export default function LandingHeader() {
       <div
         className={`min-[1000px]:hidden relative z-[65] w-[90%] mx-auto overflow-hidden transition-all duration-300 ease-out ${
           mobileMenuOpen
-            ? "max-h-[min(75vh,520px)] opacity-100 translate-y-0 mt-2 border border-white/10 rounded-2xl bg-[#000000]/95 backdrop-blur-md shadow-lg shadow-black/40"
+            ? "max-h-[min(75dvh,520px)] opacity-100 translate-y-0 mt-2 border border-white/10 rounded-2xl bg-[#000000]/95 backdrop-blur-md shadow-lg shadow-black/40"
             : "max-h-0 opacity-0 -translate-y-2 mt-0 border-0 rounded-2xl pointer-events-none"
         }`}
       >

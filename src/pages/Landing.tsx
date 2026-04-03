@@ -17,7 +17,7 @@ export default function Landing() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-dvh bg-background flex flex-col">
       <LandingHeader />
 
       <main className="flex-1 pt-24 sm:pt-28">

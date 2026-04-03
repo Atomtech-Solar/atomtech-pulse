@@ -75,7 +75,7 @@ function HeroPartnersStrip() {
 
 export default function Hero() {
   return (
-    <section className="relative overflow-hidden flex flex-col -mt-24 sm:-mt-28 h-screen bg-black">
+    <section className="relative overflow-hidden flex flex-col -mt-24 sm:-mt-28 min-h-dvh bg-black">
       {/* Fundo gradiente animado (goo + blobs) */}
       <div className="gradient-bg absolute inset-0 z-0" aria-hidden>
         <svg xmlns="http://www.w3.org/2000/svg">
@@ -105,7 +105,7 @@ export default function Hero() {
       <div className="absolute inset-0 z-[1] bg-black/35 pointer-events-none" />
 
       {/* Conteúdo central */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-0 text-center pointer-events-auto">
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-10 sm:pb-12 text-center pointer-events-auto min-h-0">
         {/* Badge */}
         <div
           className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6 sm:mb-8 text-xs sm:text-sm font-medium border border-white/10 bg-white/5 text-[#a1a1aa]"
